@@ -1,9 +1,14 @@
 // 使用 IIFE(立即执行函数表达式)，避免污染全局命名空间
-(function() {
+(function( window ) {
+
+// 开启严格模式
+"use strict";
 
 // 定义一些常用的变量
 var $,
     base,
+    // 版本号
+    version = '0.0.1',
     // document对象
     document = window.document,
     // 空数组...
@@ -29,11 +34,6 @@ function B( dom, selector ) {
   this.length = len;
   // selector 的默认值为 空字符串
   this.selector = selector || '';
-}
-
-//
-function isB( obj ) {
-  return obj instanceof base.B;
 }
 
 // 判断数据类型
@@ -113,7 +113,7 @@ base = {
     }
 
     // selector 传递的是 Base构造的实例
-    if ( isB( selector ) ) {
+    if ( this.isB( selector ) ) {
       // 返回 selector对象
       return selector;
     }
@@ -183,4 +183,9 @@ window.$ = window.Base = $;
 // 返回局部变量 $
 return $;
 
-})();
+})(
+  // 通过传入 window对象，可以使 window对象变为局部变量
+  // 这样在代码中访问 window对象时，就不需要将作用域链退回到顶层作用域，从而可以更快的访问 window对象
+  // 将window对象作为参数传入，还可以在代码压缩时进行优化
+  typeof window !== 'undefined' ? window : this
+);
