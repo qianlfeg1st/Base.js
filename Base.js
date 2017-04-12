@@ -11,15 +11,53 @@ var $,
     version = '0.0.1',
     // document对象
     document = window.document,
+    // HTML代码片断的正则
+    fragmentRE = /^\s*<(\w+|!)[^>]*>/,
     // 空数组...
     emptyArray = [],
     // 数组对象的 slice方法
-    slice = emptyArray.slice;
+    slice = emptyArray.slice,
+    // 创建 table元素
+    table = document.createElement('table'),
+    // 创建 tr元素
+    tableRow = document.createElement('tr'),
+    // 这里的用途是当需要给tr,tbody,thead,tfoot,td,th设置innerHTMl的时候，需要用其父元素作为容器来装载HTML字符串
+    containers = {
+      // 创建 div元素
+      '*': document.createElement('div'),
+      // 创建 tbody元素
+      'tr': document.createElement('tbody'),
+      'tbody': table,
+      'thead': table,
+      'tfoot': table,
+      'td': tableRow,
+      'th': tableRow,
+    },
+    // 可以使用Base自带的方法可以设置的属性
+    methodAttributes = ['val', 'css', 'html', 'text', 'data', 'width', 'height', 'offset'];
 
 // 初始化
 $ = function( selector, context ) {
   // 每次调用 $() 或 Base()，都会执行 base.init()进行初始化
   return base.init( selector, context );
+};
+
+$.each = function( elements, callback ) {
+  // 类数组对象
+  if ( likeArray( elements ) ) {
+    for (var i = 0; i < elements; i++ ) {
+      if ( callback.call( elements[ i ], i, elements[ i ] === false ) ) {
+        return false;
+      }
+    }
+  // 普通对象
+  } else {
+    for ( var key in elements ) {
+      if ( callback.call( elements[ key ], key, elements[ key ] === false ) ) {
+        return elements;
+      }
+    }
+  }
 };
 
 // Base构造函数
@@ -63,19 +101,28 @@ function type( val ) {
     // 布尔值
     case '[object Boolean]':
       return 'boolean';
-    // DOM节点
-    case '[object HTMLDivElement]':
-      return 'dom'
     default:
       return false;
   }
 }
 
+// 判断数据是否是类数组对象，例如NodeList和argument
+function likeArray( obj ) {
+  var types = type( obj );
+  var length = obj.length;
+  // obj必须是对象，不能是数组、函数、window
+  if ( typeof obj === 'object' && types !== 'array' && types !== 'function' && types !== 'window' ) {
+    // obj中必须有length属性，length的值必须是Number类型，并且大于等于0
+    if ( 'length' in obj && type( length ) === 'number' && length >= 0 ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 base = {
   // 初始化方法
   init: function( selector, context ) {
-
-    console.info('初始化开始!');
 
     // DOM集合
     var dom;
@@ -91,18 +138,19 @@ base = {
       // selector 传递的是 HTML
       if ( selector[ 0 ] === '<' && fragmentRE.test( selector ) ) {
         // 创建 DOM节点
-        dom = base.fragment( selector, RegExp.$1, context );
+        dom = this.fragment( selector, RegExp.$1, context );
+        debugger;
         // 由于传入的是HTML 这里必须清空selector
         selector = null;
-      }
-
-      // context 传递了上下文
-      if ( context !== undefined ) {
-        // 在上下文中查找元素，并返回
-        return $( contentx ).find( selector );
       } else {
-        // 通过 选择器查找元素
-        dom = this.qsa( document, selector );
+        // context 传递了上下文
+        if ( context !== undefined ) {
+          // 在上下文中查找元素，并返回
+          return $( contentx ).find( selector );
+        } else {
+          // 通过 选择器查找元素
+          dom = this.qsa( document, selector );
+        }
       }
     }
 
@@ -116,6 +164,14 @@ base = {
     if ( this.isB( selector ) ) {
       // 返回 selector对象
       return selector;
+    }
+
+    // selector 传递的是 DOM节点
+    if ( Object.prototype.toString.call( selector ).indexOf( 'Element' ) > 0 ) {
+      // 将DOM节点写入数组
+      dom = [ selector ];
+      // 由于传入的是对象 这里必须清空selector
+      //selector = null;
     }
 
     // 将结果集转换为 Base对象，并返回
@@ -174,6 +230,61 @@ base = {
       // 把 NodeList转换为数组，并返回
       return slice.call( element.querySelectorAll( selector ) );
     }
+  },
+  //
+  fragment: function( html, name, properties ) {
+    var dom,
+        nodes,
+        container,
+        // 匹配单标签，类似 '<div>' or '<a/>'
+        singleTagRE = /^<(\w+)\s*\/?>(?:<\/\1>|)$/,
+        // 匹配非单独一个闭合标签的标签，类似将<div></div>写成了<div/>
+        tagExpanderRE = /<(?!area|br|col|embed|hr|img|input|link|meta|param)(([\w:]+)[^>]*)\/>/ig;
+
+    // html为 单标签，类似 '<div>' or '<a/>'
+    if ( singleTagRE.test( html ) ) {
+      // RegExp.$1 匹配到的第一个组，即 (\w+)
+      dom = $( document.createElement( name || RegExp.$1 ) );
+    }
+
+    // DOM节点为空
+    if ( !dom ) {
+      // 将类似<div class="test"/>替换成<div class="test"></div>
+      if ( html.replace ) html = html.replace( tagExpanderRE, '<$1><$2>' );
+      // name 未传参，获取标签名
+      if ( name === undefined ) name = fragmentRE.test( html ) && RegExp.$1;
+      // 设置容器标签名，如果不是 tr、tbody、thead、tfoot、td、th，则容器标签名为 div
+      if ( !( name in containers ) ) name = '*';
+      // 创建容器，默认是 div元素
+      container = containers[ name ];
+      // 将HTML代码片段放入容器
+      container.innerHTML = '' + html;
+      // 获取容器的子节点，这样就把字符串转成 DOM节点了
+      // 顺便把 NodeList转换为数组，方便后面遍历
+      dom = slice.call( container.childNodes );
+
+      // 传入了上下文
+      if ( type( properties ) ) {
+        // 将DOM节点转换成Base对象，为了方便下面调用base上的方法
+        nodes = $( dom );
+        console.info('dom', dom);
+        console.info('nodes', nodes);
+        // 遍历对象，设置属性
+        $.each( properties, function( key, value ) {
+          if ( methodAttributes.indexOf( key ) > -1 ) {
+            nodes[ key ]( value );
+          } else {
+            // 使用 Base对象的attr方法设置属性
+            nodes.attr( key, value );
+          }
+        } );
+      }
+
+    }
+
+
+    return dom;
+
   }
 };
 
