@@ -157,7 +157,7 @@ base = {
     // selector 传递的是 函数
     if ( type( selector ) === 'function' ) {
       // DOM构建完成后执行这个函数
-      return $( documnet ).ready( selector );
+      return $( document ).ready( selector );
     }
 
     // selector 传递的是 Base构造的实例
@@ -303,6 +303,25 @@ $.fn = {
     });
     return this;
   },
+  // 当DOM构建完成后执行回调函数
+  ready: function( callback ) {
+    // 匹配complete、loaded、interactive 三种状态
+    var readyRE = /complete|loaded|interactive/;
+    // 页面已经加载完成，并且body元素已经创建
+    if ( readyRE.test( document.readyState ) && document.body ) {
+      // setTimeout(function() {}, 0)在这里起到的是尾执行的作用
+      setTimeout( function() {
+        // 执行回调函数
+        callback();
+      } );
+    // 使用 DOMContentLoaded事件触发回调
+    } else {
+      document.addEventListener( 'DOMContentLoaded', function() {
+        // 执行回调
+        callback();
+      }, false );
+    }
+  }
 }
 
 
