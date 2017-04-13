@@ -34,7 +34,9 @@ var $,
       'th': tableRow,
     },
     // 可以使用Base自带的方法可以设置的属性
-    methodAttributes = ['val', 'css', 'html', 'text', 'data', 'width', 'height', 'offset'];
+    methodAttributes = ['val', 'css', 'html', 'text', 'data', 'width', 'height', 'offset'],
+    // 用来缓存正则
+    classCache = {};
 
 // 初始化
 $ = function( selector, context ) {
@@ -120,6 +122,48 @@ function likeArray( obj ) {
   return false;
 }
 
+// 将给定的参数生成正则
+function classRE( name ) {
+  // 在缓存中能查找到 name
+  if ( name in classCache ) {
+    // 直接到缓存中取值
+    return classCache[ name ];
+  } else {
+    // 将值写入缓存，并返回
+    return classCache[ name ] = new RegExp('(^|\\s)' + name + '(\\s|$)');
+  }
+}
+
+// 获取 和 设置 className
+function className( node, value ) {
+  // 非SVG元素的className值
+  var klass = node.className || '';
+  // 是否为SVG元素，klass的值不能为空(svg元素的className是一个SVGAnimatedString对象，里面包含了baseVal属性)，并且必须有baseVal属性
+  var svg = klass && klass.baseVal !== undefined;
+
+  // 传了一个参数
+  if ( arguments.length === 1 ) {
+    // 是 SVG元素
+    if ( svg ) {
+      // 返回 SVG元素的className
+      return klass.baseVal;
+    } else {
+      // 返回 普通元素的className
+      return node.className;
+    }
+  // 传了多个参数
+  } else {
+    // 是 SVG元素
+    if ( svg ) {
+      // 设置 SVG元素的className
+      klass.baseVal = value;
+    } else {
+      // 设置 普通元素的className
+      node.className = value;
+    }
+  }
+}
+
 base = {
   // 初始化方法
   init: function( selector, context ) {
@@ -160,7 +204,7 @@ base = {
       return $( document ).ready( selector );
     }
 
-    // selector 传递的是 Base构造的实例
+    // selector 传递的是 Base对象
     if ( this.isB( selector ) ) {
       // 返回 selector对象
       return selector;
@@ -314,13 +358,28 @@ $.fn = {
         // 执行回调函数
         callback();
       } );
-    // 使用 DOMContentLoaded事件触发回调
+    // DOM还未构建完成
     } else {
+      // 注册 DOMContentLoaded事件触发回调
       document.addEventListener( 'DOMContentLoaded', function() {
         // 执行回调
         callback();
       }, false );
     }
+  },
+  // 获取 DOM节点的数量
+  size: function() {
+    // 返回 DOM节点的个数
+    return this.length;
+  },
+  // 检查 是否有元素含有指定的 类(class)
+  hasClass: function( name ) {
+    // 未传参，返回 false
+    if ( !name ) return false;
+    // 借用数组的 some方法进行迭代(第一次返回true就返回true)
+    return emptyArray.some.call( this, function( item ) {
+      return classRE( name ).test( className( item ) );
+    } );
   }
 }
 
