@@ -231,7 +231,7 @@ base = {
       return slice.call( element.querySelectorAll( selector ) );
     }
   },
-  //
+  // 创建DOM节点的方法
   fragment: function( html, name, properties ) {
     var dom,
         nodes,
@@ -267,8 +267,6 @@ base = {
       if ( type( properties ) ) {
         // 将DOM节点转换成Base对象，为了方便下面调用base上的方法
         nodes = $( dom );
-        console.info('dom', dom);
-        console.info('nodes', nodes);
         // 遍历对象，设置属性
         $.each( properties, function( key, value ) {
           if ( methodAttributes.indexOf( key ) > -1 ) {
@@ -277,16 +275,39 @@ base = {
             // 使用 Base对象的attr方法设置属性
             nodes.attr( key, value );
           }
-        } );
+        });
       }
-
     }
 
-
-    return dom;
-
+  return dom;
   }
 };
+
+// Baase对象的原型链上的方法和属性
+$.fn = {
+  // 该属性的值是 工厂函数，而不是 构造函数
+  constructor: base.B,
+  length: 0,
+  // 将一些操作数组的原生方法添加进来
+  forEach: emptyArray.forEach,
+  reduce: emptyArray.reduce,
+  push: emptyArray.push,
+  sort: emptyArray.sort,
+  splice: emptyArray.splice,
+  indexOf: emptyArray.indexOf,
+  //
+  each: function( callback ) {
+    // 借用数组的 every方法 进行迭代
+    emptyArray.every.call( this, function( item, index ) {
+      return callback.call( item, index, item ) !== false;
+    });
+    return this;
+  },
+}
+
+
+// 构造函数B 的原型链指向 '$.fn'，那么B构造的实例都将继承 '$.fn'中的方法和属性
+B.prototype = $.fn;
 
 // 将 局部变量$ 暴露给全局变量 $ 和 Base
 window.$ = window.Base = $;
