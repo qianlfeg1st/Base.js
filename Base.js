@@ -36,7 +36,9 @@ var $,
     // 可以使用Base自带的方法可以设置的属性
     methodAttributes = ['val', 'css', 'html', 'text', 'data', 'width', 'height', 'offset'],
     // 用来缓存正则
-    classCache = {};
+    classCache = {},
+    // 缓存className
+    classList;
 
 // 初始化
 $ = function( selector, context ) {
@@ -161,6 +163,20 @@ function className( node, value ) {
       // 设置 普通元素的className
       node.className = value;
     }
+  }
+}
+
+// 这个函数在整个库中取着很重要的作用，处理参数(arg)为 函数 或 值 的情况
+// 因为很多方法，不仅可以传递字符串，还能传递函数
+function funcArg( context, arg, index, payload ) {
+  // 处理arg是函数的情况
+  if ( type( arg ) === 'function' ) {
+    // 以context作为上下文执行函数，并返回
+    return arg.call( context, index, payload );
+  // 处理arg非函数的情况
+  } else {
+    // 返回 自身
+    return arg;
   }
 }
 
@@ -339,12 +355,14 @@ $.fn = {
   sort: emptyArray.sort,
   splice: emptyArray.splice,
   indexOf: emptyArray.indexOf,
-  //
+  //  遍历数组的方法
   each: function( callback ) {
-    // 借用数组的 every方法 进行迭代
+    // 借用数组的 every方法(第一次返回，就返回false) 进行迭代
     emptyArray.every.call( this, function( item, index ) {
+      // 当callback(回调函数)返回false时，就停止迭代，否则会遍历整个数组
       return callback.call( item, index, item ) !== false;
     });
+    // 返回 Base对象
     return this;
   },
   // 当DOM构建完成后执行回调函数
@@ -353,7 +371,7 @@ $.fn = {
     var readyRE = /complete|loaded|interactive/;
     // 页面已经加载完成，并且body元素已经创建
     if ( readyRE.test( document.readyState ) && document.body ) {
-      // setTimeout(function() {}, 0)在这里起到的是尾执行的作用
+      // setTimeout(function() {}, 0)在这里起到尾执行的作用
       setTimeout( function() {
         // 执行回调函数
         callback();
@@ -362,7 +380,7 @@ $.fn = {
     } else {
       // 注册 DOMContentLoaded事件触发回调
       document.addEventListener( 'DOMContentLoaded', function() {
-        // 执行回调
+        // 执行回调函数
         callback();
       }, false );
     }
@@ -379,6 +397,37 @@ $.fn = {
     // 借用数组的 some方法进行迭代(第一次返回true就返回true)
     return emptyArray.some.call( this, function( item ) {
       return classRE( name ).test( className( item ) );
+    } );
+  },
+  // 添加 类(class)，多个类使用空格分隔
+  addClass: function( name ) {
+    // 未传参数，返回 Base对象
+    if ( !name ) return this;
+    // 遍历数组，并返回 Base对象
+    return this.each( function( index ) {
+      // 已经缓存了className，就终止迭代
+      if ( !( 'className' in this ) ) return;
+      // 获取 className
+      var cls = className( this );
+      // 处理参数是函数的情况
+      var newName = funcArg( this, name, index, cls );
+      // 清空缓存，也可以在方法尾部清空
+      classList = [];
+      // 处理拥有多个类的情况(用空格分割成数组，然后遍历)
+      newName.split( /\s+/g ).forEach( function( klass ) {
+        // 没有重复的类(class)
+        if ( !$( this ).hasClass( klass ) ) {
+          // 将不重复的类写入数组
+          classList.push( klass );
+        }
+      }, this );
+      // classList不是空数组
+      if ( classList.length ) {
+        // 自身的className + ( 如果className不为空就增加一个空格，空的话就是一个空字符串 ) + 我们要增加的className(不能重复，用一个空格将数组拼接成字符串)
+        cls = cls + ( cls ? ' ' : '' ) + classList.join(' ');
+        // 设置 className
+        className( this, cls );
+      }
     } );
   }
 }
