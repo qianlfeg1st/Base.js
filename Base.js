@@ -348,7 +348,7 @@ $.fn = {
   // 该属性的值是 工厂函数，而不是 构造函数
   constructor: base.B,
   length: 0,
-  // 将一些操作数组的原生方法添加进来
+  // 将一些操作数组的原生方法添加进来，由于Base对象是类数组对象，这样我们就能在Base对象上直接使用这些方法
   forEach: emptyArray.forEach,
   reduce: emptyArray.reduce,
   push: emptyArray.push,
@@ -392,7 +392,7 @@ $.fn = {
   },
   // 检查 是否有元素含有指定的 类(class)
   hasClass: function( name ) {
-    // 未传参，返回 false
+    // 未传参数 或 传递了空字符串，返回 false
     if ( !name ) return false;
     // 借用数组的 some方法进行迭代(第一次返回true就返回true)
     return emptyArray.some.call( this, function( item ) {
@@ -401,19 +401,17 @@ $.fn = {
   },
   // 添加 类(class)，多个类使用空格分隔
   addClass: function( name ) {
-    // 未传参数，返回 Base对象
+    // 未传参数 或 传递了空字符串，返回 Base对象
     if ( !name ) return this;
     // 遍历数组，并返回 Base对象
     return this.each( function( index ) {
-      // 已经缓存了className，就终止迭代
-      if ( !( 'className' in this ) ) return;
       // 获取 className
       var cls = className( this );
       // 处理参数是函数的情况
       var newName = funcArg( this, name, index, cls );
       // 清空缓存，也可以在方法尾部清空
       classList = [];
-      // 处理拥有多个类的情况(用空格分割成数组，然后遍历)
+      // 处理添加多个类的情况(将className用空格分割成字符串，然后遍历)
       newName.split( /\s+/g ).forEach( function( klass ) {
         // 没有重复的类(class)
         if ( !$( this ).hasClass( klass ) ) {
@@ -428,6 +426,32 @@ $.fn = {
         // 设置 className
         className( this, cls );
       }
+    } );
+  },
+  // 删除 类(class)，多个类使用空格分隔
+  removeClass: function( name ) {
+    // 遍历数组，并返回 Base对象
+    return this.each( function( index ) {
+      // 未传参数 或 传递了空字符串
+      if ( !name ) {
+        // 移除所有类(class)
+        className( this, '' );
+        // 中止遍历
+        return;
+      }
+      // 获取 className，这里的classList是字符串类型
+      classList = className( this );
+      // 处理参数是函数的情况
+      var newName = funcArg( this, name, index, classList );
+      // 处理删除多个类的情况(将className用空格分割成字符串，然后遍历)
+      newName.split( /\s+/g ).forEach( function( klass ) {
+        // 将 className(字符串)中匹配到的字符串替换成 空格
+        classList = classList.replace( classRE( klass ), ' ' );
+      }, this );
+      // 去除字符串首尾的空格，trim()是ES5原生方法
+      classList = classList.trim();
+      // 设置 className
+      className( this, classList );
     } );
   }
 }
