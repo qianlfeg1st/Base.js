@@ -38,7 +38,17 @@ var $,
     // 用来缓存正则
     classCache = {},
     // 缓存className
-    classList;
+    classList,
+    // 设置CSS时，不用加px单位的属性
+    cssNumber = {
+      'column-count': 1,
+      'columns': 1,
+      'font-weight': 1,
+      'line-height': 1,
+      'opacity': 1,
+      'z-index': 1,
+      'zoom': 1
+    };
 
 // 初始化
 $ = function( selector, context ) {
@@ -49,19 +59,20 @@ $ = function( selector, context ) {
 $.each = function( elements, callback ) {
   // 类数组对象
   if ( likeArray( elements ) ) {
-    for (var i = 0; i < elements; i++ ) {
-      if ( callback.call( elements[ i ], i, elements[ i ] === false ) ) {
-        return false;
+    for (var i = 0; i < elements.length; i++ ) {
+      if ( callback.call( elements[ i ], i, elements[ i ] ) === false ) {
+        return elements;
       }
     }
   // 普通对象
   } else {
     for ( var key in elements ) {
-      if ( callback.call( elements[ key ], key, elements[ key ] === false ) ) {
+      if ( callback.call( elements[ key ], key, elements[ key ] ) === false ) {
         return elements;
       }
     }
   }
+  return elements;
 };
 
 // Base构造函数
@@ -114,10 +125,22 @@ function type( val ) {
 function likeArray( obj ) {
   var types = type( obj );
   var length = obj.length;
-  // obj必须是对象，不能是数组、函数、window
-  if ( typeof obj === 'object' && types !== 'array' && types !== 'function' && types !== 'window' ) {
-    // obj中必须有length属性，length的值必须是Number类型，并且大于等于0
-    if ( 'length' in obj && type( length ) === 'number' && length >= 0 ) {
+  // obj不能为空值 或 undefined
+  if ( obj &&
+      // obj必须是 对象
+      typeof obj === 'object' &&
+      // obj不能是 函数
+      types !== 'function' &&
+      // obj不能是 window对象
+      types !== 'window' ) {
+    // obj中必须有 length属性
+    if ( 'length' in obj &&
+        // length的值必须是数字
+        type( length ) === 'number' &&
+        // length的值必须大于或等于0
+        length >= 0 &&
+        // length的值必须是整数
+        length === Math.floor( length ) ) {
       return true;
     }
   }
@@ -177,6 +200,39 @@ function funcArg( context, arg, index, payload ) {
   } else {
     // 返回 自身
     return arg;
+  }
+}
+
+// 将字符串转换为驼峰格式，例子：font-size => fontSize
+function camelCase( str ) {
+  return str.replace( /-+(.)?/g, function( a, b ) {
+    // 这里的参数b，就是 (.)? 里的值
+    return b ? b.toUpperCase() : '';
+  } );
+}
+
+// 将驼峰格式的字符串转换为'-'分割的形式 fontSize => font-size
+function dasherize( str ) {
+  return str.replace( /::/g, '/' )
+             .replace( /([A-Z]+)([A-Z][a-z])/g, '$1_$2' )
+             .replace( /([a-z\d])([A-Z])/g, '$1_$2' )
+             .replace( /_/g, '-' )
+             .toLowerCase();
+}
+
+// 在数组后面加上 'px'单位，列子： 100 => 100px
+function maybeAddPx( name, val ) {
+  // val 是数字
+  if ( ( type( val ) === 'number' ||
+  // val 是字符串，同时转换为数字在转换为字符串后的值与val相等，列子：'100'
+  ( type( val ) === 'string' && val === (+val) + '' ) ) &&
+  // name不在 cssNumber索引中
+  !cssNumber[ name ] ) {
+    // 在 末尾增加'px'，并返回
+    return val + 'px';
+  } else {
+    // 不做处理
+    return val;
   }
 }
 
@@ -453,6 +509,76 @@ $.fn = {
       // 设置 className
       className( this, classList );
     } );
+  },
+  // 获取 或 设置CSS值
+  css: function( property, val ) {
+    // 获取对象集合的第一个元素
+    var element = this[ 0 ];
+    // 缓存 property的数据类型
+    var types = type( property );
+    // 缓存 格式化后的样式字符串
+    var css = '';
+
+    // 对象集合是空的话，就终止执行
+    if ( !element ) return;
+
+    // 只传了一个参数(获取 CSS值)
+    if ( arguments.length === 1 ) {
+      // property传递的是 字符串
+      if ( types === 'string' ) {
+        // 因为内联样式的优先级最高，所以先查找内联样式，如果找不到再用 getComputedStyle方法获取元素所有的样式
+        return element.style[ camelCase( property ) ] || getComputedStyle(element, '').getPropertyValue(property);
+      }
+      // property传递的是 数组
+      if ( types === 'array' ) {
+        // 存储属性值
+        var props = {};
+        // 遍历数组
+        $.each( property, function( index, item ){
+          // 通过下标的形式将属性和属性值写入对象
+          props[ item ] = element.style[ camelCase( item ) ] || getComputedStyle( element, '' ).getPropertyValue( item );
+        } );
+        // 返回 属性值对象
+        return props;
+      }
+    }
+      // property传递的是 字符串
+      if ( types === 'string' ) {
+        // val值是null 或 undefine 或 空字符串 的情况，排除掉等于0的情况
+        if ( !val && val !== 0 ) {
+          // 遍历对象集合
+          this.each( function() {
+            // 删除样式
+            this.style.removeProperty( dasherize( property ) );
+          } );
+        } else {
+          // 格式化样式，例子：font-size: 24px
+          css = dasherize( property ) + ':' + maybeAddPx( property, val );
+        }
+      }
+      // property传递的是 对象
+      if ( types === 'object' ) {
+        // 遍历property对象
+        for ( var key in property ) {
+          // 属性值是null 或 undefine 或 空字符串 的情况，排除掉等于0的情况
+          if ( !property[ key ] && property[ key ] !== 0 ) {
+            // 遍历 Base对象
+            this.each( function() {
+              // 删除样式
+              this.style.removeProperty( dasherize( key ) );
+            } );
+          } else {
+            // 格式化样式，例子：color: red;font-size: 24px;
+            css += dasherize( key ) + ':' + maybeAddPx( key, property[ key ] ) + ';';
+          }
+        }
+      }
+
+      // 遍历Base对象集合，并返回 Base对象
+      return this.each( function() {
+        // 设置 样式
+        this.style.cssText += ';' + css;
+      } );
   }
 }
 
