@@ -118,9 +118,37 @@ function type( val ) {
     // 布尔值
     case '[object Boolean]':
       return 'boolean';
+      // NULL
+      case '[object Null]':
+        return 'null';
     default:
       return false;
   }
+}
+
+// 是否为 字符串
+function isStr( val ) {
+  return type( val ) === 'string';
+}
+
+// 是否为 函数
+function isFunction( val ) {
+  return type( val ) === 'function';
+}
+
+// 是否为 对象
+function isObject( val ) {
+  return type( val ) === 'object';
+}
+
+// 是否为 数字
+function isNum( val ) {
+  return type( val ) === 'number';
+}
+
+// 是否为 Null
+function isNull( val ) {
+  return type( val ) === 'null';
 }
 
 // 判断数据是否是类数组对象，例如NodeList和argument
@@ -260,6 +288,18 @@ function defaultDisplay( nodeName ) {
 
   // 返回 缓存中的display的属性值
   return elementDisplay[ nodeName ];
+}
+
+// 设置 属性值
+function setAttribute( node, name, val ) {
+  // val传递的值是 null 或 undefined
+  if ( val === null || val === undefined ) {
+    // 移除这个属性
+    node.removeAttribute( name );
+  } else {
+    // 设置 属性值
+    node.setAttribute( name, val );
+  }
 }
 
 base = {
@@ -626,6 +666,51 @@ $.fn = {
   hide: function() {
     // 通过css方法设置，并返回 Base对象
     return this.css( 'display', 'none' );
+  },
+  // 获取 或 设置 属性值
+  attr: function( name, val ) {
+    var result,
+        newValue,
+        self;
+
+    // 传了两个参数
+    if ( arguments.length === 2 ) {
+      // 第一个参数必须是字符串，第二个参数必须是函数、数字、字符串、Null之中的一种
+      if ( isStr( name ) && ( isStr( val ) || isFunction( val ) || isNum( val ) || isNull( val ) ) ) {
+        // 遍历 Base对象集合，并返回 Base对象
+        return this.each( function( index ) {
+          // 处理参数是函数的情况
+          newValue = funcArg( this, val, index, this.getAttribute( name ) );
+          // 设置 属性的值
+          setAttribute( this, name, newValue );
+        } );
+      } else {
+        // 终止执行
+        return;
+      }
+    }
+
+    // name传递的是 字符串(获取 Base对象集合第一个元素的属性值)
+    if ( isStr( name ) ) {
+      result = this[ 0 ].getAttribute( name );
+    }
+
+    // name传递的是 对象(批量 设置属性值)
+    if ( isObject( name ) ) {
+      // 遍历 Base对象集合，并返回 Base对象
+      return this.each( function() {
+        // DOM节点
+        self = this;
+        // 遍历 name对象
+        $.each( name, function( key, val ) {
+          // 设置 属性的值
+          setAttribute( self ,key, val );
+        } );
+      } );
+    }
+
+    // 返回 属性的值
+    return result;
   }
 }
 
