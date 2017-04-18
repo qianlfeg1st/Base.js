@@ -118,9 +118,12 @@ function type( val ) {
     // 布尔值
     case '[object Boolean]':
       return 'boolean';
-      // NULL
-      case '[object Null]':
-        return 'null';
+    // NULL
+    case '[object Null]':
+      return 'null';
+    // undefined
+    case '[object Undefined]':
+      return 'undefined';
     default:
       return false;
   }
@@ -151,6 +154,21 @@ function isNull( val ) {
   return type( val ) === 'null';
 }
 
+// 是否为 数组
+function isArray( val ) {
+  return type( val ) === 'array';
+}
+
+// 是否为 window对象
+function isWindow( val ) {
+  return type( val ) === 'window';
+}
+
+// 是否为 undefined
+function isUndefined( val ) {
+  return type( val ) === 'undefined';
+}
+
 // 判断数据是否是类数组对象，例如NodeList和argument
 function likeArray( obj ) {
   var types = type( obj );
@@ -158,15 +176,15 @@ function likeArray( obj ) {
   // obj不能为空值 或 undefined
   if ( obj &&
       // obj必须是 对象
-      typeof obj === 'object' &&
+      isObject( obj ) &&
       // obj不能是 函数
-      types !== 'function' &&
+      !isFunction( obj ) &&
       // obj不能是 window对象
-      types !== 'window' ) {
+      !isWindow( obj ) ) {
     // obj中必须有 length属性
     if ( 'length' in obj &&
         // length的值必须是数字
-        type( length ) === 'number' &&
+        isNum( length ) &&
         // length的值必须大于或等于0
         length >= 0 &&
         // length的值必须是整数
@@ -223,7 +241,7 @@ function className( node, value ) {
 // 因为很多方法，不仅可以传递字符串，还能传递函数
 function funcArg( context, arg, index, payload ) {
   // 处理arg是函数的情况
-  if ( type( arg ) === 'function' ) {
+  if ( isFunction( arg ) ) {
     // 以context作为上下文执行函数，并返回
     return arg.call( context, index, payload );
   // 处理arg非函数的情况
@@ -253,9 +271,9 @@ function dasherize( str ) {
 // 在数组后面加上 'px'单位，列子： 100 => 100px
 function maybeAddPx( name, val ) {
   // val 是数字
-  if ( ( type( val ) === 'number' ||
+  if ( ( isNum( val ) ||
   // val 是字符串，同时转换为数字在转换为字符串后的值与val相等，列子：'100'
-  ( type( val ) === 'string' && val === (+val) + '' ) ) &&
+  ( isStr( val ) && val === (+val) + '' ) ) &&
   // name不在 cssNumber索引中
   !cssNumber[ name ] ) {
     // 在 末尾增加'px'，并返回
@@ -293,7 +311,7 @@ function defaultDisplay( nodeName ) {
 // 设置 属性值
 function setAttribute( node, name, val ) {
   // val传递的值是 null 或 undefined
-  if ( val === null ) {
+  if ( isNull( val ) ) {
     // 移除这个属性
     node.removeAttribute( name );
   } else {
@@ -313,7 +331,7 @@ base = {
     if ( !selector ) return this.B();
 
     // selector 传递的是 字符串
-    if ( type( selector ) === 'string' ) {
+    if ( isStr( selector ) ) {
       // 去除字符串首尾的空格
       selector = selector.trim();
 
@@ -337,7 +355,7 @@ base = {
     }
 
     // selector 传递的是 函数
-    if ( type( selector ) === 'function' ) {
+    if ( isFunction( selector ) ) {
       // DOM构建完成后执行这个函数
       return $( document ).ready( selector );
     }
@@ -591,12 +609,12 @@ $.fn = {
     // 只传了一个参数(获取 CSS值)
     if ( arguments.length === 1 ) {
       // property传递的是 字符串
-      if ( types === 'string' ) {
+      if ( isStr( property ) ) {
         // 因为内联样式的优先级最高，所以先查找内联样式，如果找不到再用 getComputedStyle方法获取元素所有的样式
         return element.style[ camelCase( property ) ] || getComputedStyle(element, '').getPropertyValue(property);
       }
       // property传递的是 数组
-      if ( types === 'array' ) {
+      if ( isArray( property ) ) {
         // 存储属性值
         var props = {};
         // 遍历数组
@@ -609,7 +627,7 @@ $.fn = {
       }
     }
     // property传递的是 字符串
-    if ( types === 'string' ) {
+    if ( isStr( property ) ) {
       // val值是null 或 undefine 或 空字符串 的情况，排除掉等于0的情况
       if ( !val && val !== 0 ) {
         // 遍历对象集合
@@ -623,7 +641,7 @@ $.fn = {
       }
     }
     // property传递的是 对象
-    if ( types === 'object' ) {
+    if ( isObject( property ) ) {
       // 遍历property对象
       for ( var key in property ) {
         // 属性值是null 或 undefine 或 空字符串 的情况，排除掉等于0的情况
