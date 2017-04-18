@@ -48,7 +48,9 @@ var $,
       'opacity': 1,
       'z-index': 1,
       'zoom': 1
-    };
+    },
+    // 缓存元素的display属性
+    elementDisplay = {};
 
 // 初始化
 $ = function( selector, context ) {
@@ -234,6 +236,30 @@ function maybeAddPx( name, val ) {
     // 不做处理
     return val;
   }
+}
+
+// 获取DOM节点默认的display的属性值
+function defaultDisplay( nodeName ) {
+  var element,
+      display,
+      body = document.body;
+
+  // 在缓存中查找不到
+  if ( !elementDisplay[ nodeName ] ) {
+    // 创建元素
+    element = document.createElement( nodeName );
+    // 将元素插入到 body末尾
+    body.appendChild( element );
+    // 获取这个元素默认的display值
+    display = getComputedStyle(element, '').getPropertyValue('display');
+    // 移除刚刚插入的元素
+    body.removeChild( element );
+    // 缓存 display属性
+    elementDisplay[ nodeName ] = display;
+  }
+
+  // 返回 缓存中的display的属性值
+  return elementDisplay[ nodeName ];
 }
 
 base = {
@@ -542,43 +568,64 @@ $.fn = {
         return props;
       }
     }
-      // property传递的是 字符串
-      if ( types === 'string' ) {
-        // val值是null 或 undefine 或 空字符串 的情况，排除掉等于0的情况
-        if ( !val && val !== 0 ) {
-          // 遍历对象集合
+    // property传递的是 字符串
+    if ( types === 'string' ) {
+      // val值是null 或 undefine 或 空字符串 的情况，排除掉等于0的情况
+      if ( !val && val !== 0 ) {
+        // 遍历对象集合
+        this.each( function() {
+          // 删除样式
+          this.style.removeProperty( dasherize( property ) );
+        } );
+      } else {
+        // 格式化样式，例子：font-size: 24px
+        css = dasherize( property ) + ':' + maybeAddPx( property, val ) + ';';
+      }
+    }
+    // property传递的是 对象
+    if ( types === 'object' ) {
+      // 遍历property对象
+      for ( var key in property ) {
+        // 属性值是null 或 undefine 或 空字符串 的情况，排除掉等于0的情况
+        if ( !property[ key ] && property[ key ] !== 0 ) {
+          // 遍历 Base对象
           this.each( function() {
             // 删除样式
-            this.style.removeProperty( dasherize( property ) );
+            this.style.removeProperty( dasherize( key ) );
           } );
         } else {
-          // 格式化样式，例子：font-size: 24px
-          css = dasherize( property ) + ':' + maybeAddPx( property, val );
+          // 格式化样式，例子：color: red;font-size: 24px;
+          css += dasherize( key ) + ':' + maybeAddPx( key, property[ key ] ) + ';';
         }
       }
-      // property传递的是 对象
-      if ( types === 'object' ) {
-        // 遍历property对象
-        for ( var key in property ) {
-          // 属性值是null 或 undefine 或 空字符串 的情况，排除掉等于0的情况
-          if ( !property[ key ] && property[ key ] !== 0 ) {
-            // 遍历 Base对象
-            this.each( function() {
-              // 删除样式
-              this.style.removeProperty( dasherize( key ) );
-            } );
-          } else {
-            // 格式化样式，例子：color: red;font-size: 24px;
-            css += dasherize( key ) + ':' + maybeAddPx( key, property[ key ] ) + ';';
-          }
-        }
-      }
+    }
 
-      // 遍历Base对象集合，并返回 Base对象
-      return this.each( function() {
-        // 设置 样式
-        this.style.cssText += ';' + css;
-      } );
+    // 遍历Base对象集合，并返回 Base对象
+    return this.each( function() {
+      // 设置 样式
+      this.style.cssText += ';' + css;
+    } );
+  },
+  // 显示元素
+  show: function() {
+    // 遍历 Base对象集合，并返回Base对象
+    return this.each( function() {
+      // 元素设置了行内样式
+      if ( this.style.display === 'none' ) {
+        // 清除行内的display样式，如果是块级元素会变成block，内联元素会变成inline(如果设置了内联或外联样式，则使用设置的值)
+        this.style.display = '';
+      }
+      // 元素设置了 内联样式 或 外联样式(为了防止内行和外联同时设置了'display: none;')
+      if ( getComputedStyle( this, '' ).getPropertyValue( 'display' ) === 'none' ) {
+        // 将 display的样式还原成浏览器的默认值，defaultDisplay函数的作用是获取默认值
+        this.style.display = defaultDisplay( this.nodeName );
+      }
+    } );
+  },
+  // 隐藏元素
+  hide: function() {
+    // 通过css方法设置，并返回 Base对象
+    return this.css( 'display', 'none' );
   }
 }
 
