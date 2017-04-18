@@ -293,7 +293,7 @@ function defaultDisplay( nodeName ) {
 // 设置 属性值
 function setAttribute( node, name, val ) {
   // val传递的值是 null 或 undefined
-  if ( val === null || val === undefined ) {
+  if ( val === null ) {
     // 移除这个属性
     node.removeAttribute( name );
   } else {
@@ -711,6 +711,25 @@ $.fn = {
 
     // 返回 属性的值
     return result;
+  },
+  // 删除属性值，多个属性使用空格分割
+  removeAttr: function( name ) {
+    // name传递的是 字符串
+    if ( isStr( name ) ) {
+      // 遍历 Base对象结合，并返回 Base对象
+      return this.each( function() {
+        // 必须是元素节点
+        if ( this.nodeType === 1 ) {
+          // 将字符串分割为数组，然后遍历
+          name.split( /\s+/g ).forEach( function( item ) {
+            // 移除属性
+            setAttribute( this, item, null );
+          }, this );
+        }
+      } );
+    }
+    // 返回 Base对象
+    return this;
   }
 }
 
