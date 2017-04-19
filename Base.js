@@ -169,6 +169,11 @@ function isUndefined( val ) {
   return type( val ) === 'undefined';
 }
 
+// 是否为 字符串、数字、函数中的一种
+function isSNF( val ) {
+  return isStr( val ) || isNum( val ) || isFunction( val );
+}
+
 // 判断数据是否是类数组对象，例如NodeList和argument
 function likeArray( obj ) {
   var types = type( obj );
@@ -751,9 +756,8 @@ $.fn = {
   },
   // 获取 或 设置 文本内容
   text: function( txt ) {
-
-    // 至少传了一个参数，txt的值必须是字符串和数组和函数之中的一个
-    if ( 0 in arguments && ( isStr( txt ) || isNum( txt ) || isFunction( txt ) ) ) {
+    // 至少传了一个参数，txt的值必须是字符串和数子和函数之中的一个
+    if ( 0 in arguments && isSNF( txt ) ) {
       // 遍历 Base对象集合，并返回 Base对象
       return this.each( function( index ) {
         // 设置 文本内容
@@ -772,9 +776,8 @@ $.fn = {
   },
   // 获取 或 设置 html内容
   html: function( txt ) {
-
-    // 至少传了一个参数，txt的值必须是字符串和数组和函数之中的一个
-    if ( 0 in arguments && ( isStr( txt ) || isNum( txt ) || isFunction( txt ) ) ) {
+    // 至少传了一个参数，txt的值必须是字符串和数子和函数之中的一个
+    if ( 0 in arguments && isSNF( txt ) ) {
       // 遍历 Base对象集合，并返回 Base对象
       return this.each( function( index ) {
         // 设置 html字符串
@@ -789,6 +792,35 @@ $.fn = {
     }
 
     //返回 Base对象
+    return this;
+  },
+  // 清空 元素里的DOM节点
+  empty: function() {
+    return this.each( function() {
+      // 清空 DOM节点
+      this.innerHTML = '';
+    } );
+  },
+  // 获取 或 设置 value值
+  val: function( txt ) {
+    // 至少传了一个参数，txt的值必须是字符串和数子和函数之中的一个
+    if ( 0 in arguments && isSNF( txt ) ) {
+      // txt传递的是 Null的话，就等于空字符串
+      if ( isNull( txt ) ) txt = '';
+      // 遍历 Base对象集合，并返回 Base对象
+      return this.each( function( index ) {
+        // 设置 value值
+        this.value = funcArg( this, txt, index, this.value );
+      } );
+    }
+
+    // 没有传参，Base对象中必须有一个元素
+    if ( !( 0 in arguments ) && 0 in this ) {
+      // 返回 Base对象集合中第一个元素的value值
+      return this[ 0 ].value;
+    }
+
+    // 返回 Base对象
     return this;
   }
 }
