@@ -750,26 +750,45 @@ $.fn = {
     return this;
   },
   // 获取 或 设置 文本内容
-  text: function( text ) {
-    var newText;
+  text: function( txt ) {
 
-    // 传了一个参数，text的值必须是字符串和数组之中的一个
-    if ( arguments.length === 1 && ( isStr( text ) || isNum( text ) ) ) {
+    // 至少传了一个参数，txt的值必须是字符串和数组和函数之中的一个
+    if ( 0 in arguments && ( isStr( txt ) || isNum( txt ) || isFunction( txt ) ) ) {
       // 遍历 Base对象集合，并返回 Base对象
       return this.each( function( index ) {
-        // 处理text是 函数的情况
-        newText = funcArg( this, text, index, this.textContent );
         // 设置 文本内容
-        this.textContent = newText;
+        this.textContent = funcArg( this, txt, index, this.textContent );
       } );
     }
 
     // 没有传参，Base对象中必须有一个元素
-    if ( arguments.length === 0 && 0 in this ) {
+    if ( !( 0 in arguments ) && 0 in this ) {
+      // 返回 Base对象集合中第一个元素的text字符串
       return this[ 0 ].textContent;
     }
 
     // 返回 Base对象
+    return this;
+  },
+  // 获取 或 设置 html内容
+  html: function( txt ) {
+
+    // 至少传了一个参数，txt的值必须是字符串和数组和函数之中的一个
+    if ( 0 in arguments && ( isStr( txt ) || isNum( txt ) || isFunction( txt ) ) ) {
+      // 遍历 Base对象集合，并返回 Base对象
+      return this.each( function( index ) {
+        // 设置 html字符串
+        this.innerHTML = funcArg( this, txt, index, this.innerHTML );
+      } );
+    }
+
+    // 没有传参，Base对象中必须有一个元素
+    if ( !( 0 in arguments ) && 0 in this ) {
+      // 返回 Base对象集合中第一个元素的HTML字符串
+      return this[ 0 ].innerHTML;
+    }
+
+    //返回 Base对象
     return this;
   }
 }
