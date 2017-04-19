@@ -351,7 +351,7 @@ base = {
         // context 传递了上下文
         if ( context !== undefined ) {
           // 在上下文中查找元素，并返回
-          return $( contentx ).find( selector );
+          return $( context ).find( selector );
         } else {
           // 通过 选择器查找元素
           dom = this.qsa( document, selector );
@@ -377,6 +377,14 @@ base = {
       dom = [ selector ];
       // 由于传入的是对象 这里必须清空selector
       //selector = null;
+    }
+
+    // selector传递的是 数组
+    if ( isArray( selector ) ) {
+      // selector本身就是数组，所以直接赋值
+      dom = selector;
+      // 这里的contenxt是作为selector传值的
+      selector = context;
     }
 
     // 将结果集转换为 Base对象，并返回
@@ -822,6 +830,15 @@ $.fn = {
 
     // 返回 Base对象
     return this;
+  },
+  find: function( selector ) {
+    // selector未传参，返回 Base对象
+    if ( !selector ) return this;
+    // selector传递的是 字符串
+    if ( isStr( selector ) ) {
+      // 将 Base对象集合的第一个元素作为上下文传递到qsa方法，并返回 Base对象，这里的context是作为seletor传值的
+      return $( base.qsa( this[ 0 ], selector ), this.selector + ' ' + selector );
+    }
   }
 }
 
