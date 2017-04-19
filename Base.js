@@ -748,6 +748,29 @@ $.fn = {
     }
     // 返回 Base对象
     return this;
+  },
+  // 获取 或 设置 文本内容
+  text: function( text ) {
+    var newText;
+
+    // 传了一个参数，text的值必须是字符串和数组之中的一个
+    if ( arguments.length === 1 && ( isStr( text ) || isNum( text ) ) ) {
+      // 遍历 Base对象集合，并返回 Base对象
+      return this.each( function( index ) {
+        // 处理text是 函数的情况
+        newText = funcArg( this, text, index, this.textContent );
+        // 设置 文本内容
+        this.textContent = newText;
+      } );
+    }
+
+    // 没有传参，Base对象中必须有一个元素
+    if ( arguments.length === 0 && 0 in this ) {
+      return this[ 0 ].textContent;
+    }
+
+    // 返回 Base对象
+    return this;
   }
 }
 
