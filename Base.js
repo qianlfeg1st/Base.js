@@ -120,12 +120,34 @@ function type( val ) {
     // 布尔值
     case '[object Boolean]':
       return 'boolean';
-    // NULL
+    // null
     case '[object Null]':
       return 'null';
     // undefined
     case '[object Undefined]':
       return 'undefined';
+    // date
+    case '[object Date]':
+      return 'date';
+    // error
+    case '[object Error]':
+      return 'error';
+    // symbol
+    case '[object Symbol]':
+      return 'symbol';
+    // set
+    case '[object Set]':
+      return 'set';
+    // weakset
+    case '[object WeakSet]':
+      return 'weakset';
+    // map
+    case '[object Map]':
+      return 'map';
+    // weakmap
+    case '[object WeakMap]':
+      return 'weakmap';
+    // 默认返回 false
     default:
       return false;
   }
@@ -948,6 +970,9 @@ $.fn = {
   }
 }
 
+// 在JS中函数是一种特殊的对象，也能添加属性
+// 添加静态方法type(将私有函数type()，暴露给外部使用)
+$.type = type;
 
 // 构造函数B 的原型链指向 '$.fn'，那么B构造的实例都将继承 '$.fn'中的方法和属性
 B.prototype = $.fn;
