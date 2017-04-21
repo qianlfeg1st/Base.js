@@ -393,35 +393,170 @@ function param( str ) {
   var param = {},
       items,
       key,
-      search = location.search;
+      search = location.search,
+      indexof;
 
-  // url字符串问号开始后的字符串的长度
+  // url字符串问号开始后的字符串的长度必须大于0
   if ( search.length ) {
-    // 先去掉第一个问号，然后再将字符串用'&'分割成数字，最后遍历
-    search.substring( 1 ).split('&').forEach( function( item ) {
-      // 将数组里的每个成员(字符串)，用等号再分割成数组，例子：'name=qianlifeng' => ['name', 'qianlifeng']
-      items = item.split('=');
-      // 属性名(key)
-      key = decodeURIComponent( items[ 0 ] ).trim();
-      // key不为空
-      if ( key.length ) {
-        // 通过下标的形式，将属性和属性值写入对象
-        param[ key ] = decodeURIComponent( items[ 1 ] ).trim();
-      }
-    } );
+    indexof = search.indexOf( '=' ) > 0;
+    // 参数字符串中必须有等号
+    if ( indexof ) {
+      // 先去掉第一个问号，然后再将字符串用'&'分割成数字，最后遍历
+      search.substring( 1 ).split('&').forEach( function( item ) {
+        // 将数组里的每个成员(字符串)，用等号再分割成数组，例子：'name=qianlifeng' => ['name', 'qianlifeng']
+        items = item.split('=');
+        // 属性名(key)
+        key = decodeURIComponent( items[ 0 ] ).trim();
+        // key不为空
+        if ( key.length ) {
+          // 通过下标的形式，将属性和属性值写入对象
+          param[ key ] = decodeURIComponent( items[ 1 ] ).trim();
+        }
+      } );
+    } else {
+      // 去掉问号
+      param = search.substring( 1 );
+    }
+  } else {
+    // 空字符串
+    param = '';
   }
 
   // 至少传了一个参数
   if ( 0 in arguments ) {
     // str传递的必须是 字符串
-    if ( isStr( str ) ) {
-      // 将str的属性值赋给param
+    if ( isStr( str ) && indexof ) {
       param = param[ str ];
+    } else {
+      // 空字符串
+      param = '';
     }
   }
 
   // 最后返回 param
   return param;
+}
+
+function ajax( _ref ) {
+  var _ref$type = _ref.type,
+      type = _ref$type === undefined ? 'get' : _ref$type,
+      _ref$url = _ref.url,
+      url = _ref$url === undefined ? window.location.href : _ref$url,
+      _ref$dataType = _ref.dataType,
+      dataType = _ref$dataType === undefined ? 'json' : _ref$dataType,
+      _ref$async = _ref.async,
+      async = _ref$async === undefined ? true : _ref$async,
+      _ref$contentType = _ref.contentType,
+      contentType = _ref$contentType === undefined ? 'application/x-www-form-urlencoded' : _ref$contentType,
+      _ref$success = _ref.success,
+      success = _ref$success === undefined ? null : _ref$success,
+      _ref$error = _ref.error,
+      error = _ref$error === undefined ? null : _ref$error,
+      _ref$complete = _ref.complete,
+      complete = _ref$complete === undefined ? null : _ref$complete,
+      _ref$beforeSend = _ref.beforeSend,
+      beforeSend = _ref$beforeSend === undefined ? null : _ref$beforeSend,
+      _ref$data = _ref.data,
+      data = _ref$data === undefined ? null : _ref$data,
+      _ref$headers = _ref.headers,
+      headers = _ref$headers === undefined ? null : _ref$headers;
+
+  // 存储XMLHttpRequest实例
+  var xhr = null;
+  // 存储请求成功后返回的数据
+  var response = null;
+  // 在发送请求前，是否取消请求
+  var closed = true;
+  // 是否使用了GET方式来请求
+  var isGet = type === 'get' || type === 'GET' ? true : false;
+
+  // 格式化发送到服务器的数据，转换为key=value&key=value这种格式
+  var formatData = function formatData() {
+    // 如果用户设置了要发送的数据
+    if (data) {
+      var arr = [];
+      for (var key in data) {
+        arr.push(encodeURIComponent(key) + '=' + encodeURIComponent(data[key]));
+      }
+      // 禁止浏览器缓存
+      arr.push('time=' + +new Date());
+      return arr.join('&');
+    }
+  };
+
+  // 如果请求方式是GET且发送的数据不为空，在ULR后带上参数
+  url = isGet ? url + '?' + formatData() : url;
+
+  // 设置额外的HTTP头信息
+  var setHeaders = function setHeaders() {
+    // 如果用户设置了额外的头信息
+    if (headers) {
+      for (var key in headers) {
+        // 批量设置头信息
+        xhr.setRequestHeader(key, headers[key]);
+      }
+    }
+  };
+
+  // 创建XMLHttpRequest实例
+  try {
+    // 尝试用标准方法创建XMLHttpRequest实例
+    xhr = new XMLHttpRequest();
+  } catch (e) {
+    // 兼容IE6的方法
+    xhr = new ActiveXObject('Microsoft.XMLHTTP');
+  }
+
+  // 初始化 HTTP请求
+  xhr.open(type, url, async);
+
+  // 执行beforeSend回调，并获取返回值
+  closed = beforeSend ? beforeSend(xhr) : true;
+
+  // 判断是否手动取消了请求
+  if (closed || closed === undefined) {
+    // 没有取消请求，发起请求
+    isGet ? xhr.send(null) : (xhr.setRequestHeader('content-type', contentType), setHeaders(), xhr.send(formatData()));
+  } else {
+    // 取消请求
+    return;
+  }
+
+  // 监听readyState属性
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState === 4) {
+      // 执行complete回调
+      complete ? complete(xhr, xhr.status) : null;
+      // 请求成功，状态>=200 && < 300 表示成功
+      if (xhr.status >= 200 && xhr.status < 300) {
+        switch (dataType) {
+          case 'json':
+            try {
+              // 使用JSON.parse()序列化字符串
+              response = JSON.parse(xhr.responseText);
+            } catch (e) {
+              // 使用(new Function('return ' + str))()序列化字符串
+              response = new Function('return ' + xhr.responseText)();
+            }
+            break;
+          case 'text':
+            response = xhr.responseText;
+            break;
+          case 'xml':
+            response = xhr.responseXML;
+            break;
+        }
+        // 执行success回调
+        success ? success(response, xhr.status, xhr) : null;
+      // 请求失败
+      } else {
+        // 执行error回调
+        error ? error(xhr.statusText, xhr.status, xhr) : null;
+      }
+    }
+  };
+  // 返回XMLHttpRequest实例
+  return xhr;
 }
 
 base = {
@@ -1028,6 +1163,8 @@ $.type = type;
 
 // 静态方法 param()
 $.param = param;
+
+$.ajax = ajax;
 
 // 构造函数B 的原型链指向 '$.fn'，那么B构造的实例都将继承 '$.fn'中的方法和属性
 B.prototype = $.fn;
