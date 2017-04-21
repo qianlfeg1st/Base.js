@@ -17,6 +17,8 @@ var $,
     emptyArray = [],
     // 数组对象的 slice方法
     slice = emptyArray.slice,
+    // 数组对象的 filter方法
+    filter = emptyArray.filter,
     // 创建 table元素
     table = document.createElement('table'),
     // 创建 tr元素
@@ -167,6 +169,11 @@ function isWindow( val ) {
 // 是否为 undefined
 function isUndefined( val ) {
   return type( val ) === 'undefined';
+}
+
+// 是否为 document
+function isDoc( val ) {
+  return type( val ) === 'document';
 }
 
 // 是否为 字符串、数字、函数中的一种
@@ -325,6 +332,25 @@ function setAttribute( node, name, val ) {
   }
 }
 
+// 数组去重，主要用来去除NodeList中重复的DOM节点
+function unrepeat( array ) {
+  // 遍历数组，并返回 过滤后的数组
+  return filter.call( array, function( item, index ) {
+    // 数组成员一次出现的位置与索引相等的话，就认为是不重复的值，反之就是重复的值
+    return array.indexOf( item ) === index;
+  } );
+}
+
+// 从NodeList(数组)中筛选出给定 selector的DOM节点
+function filtered( nodes, selector, chilren ) {
+
+  // Base对象集合的第一个元素的值是NULL的话，就返回 document对象
+  if ( isNull( nodes[ 0 ] ) ) return $( document );
+
+  // selector未传参
+  return !selector ? $( nodes, chilren + ' parent' ) : $( nodes ).filter( selector );
+}
+
 base = {
   // 初始化方法
   init: function( selector, context ) {
@@ -385,6 +411,12 @@ base = {
       dom = selector;
       // 这里的contenxt是作为selector传值的
       selector = context;
+    }
+
+    // selector传递的是 Document对象
+    if ( isDoc( selector ) ) {
+      dom = [ document ];
+      selector = null;
     }
 
     // 将结果集转换为 Base对象，并返回
@@ -493,6 +525,15 @@ base = {
     }
 
   return dom;
+  },
+  // 判断一个元素是否匹配给定的选择器
+  matches: function( element, selector ) {
+    // 必须传两个参数，并且element必须是元素节点，否则就返回 false
+    if ( !selector || !element || element.nodeType !== 1 ) return false;
+    // 浏览器提供的 MatchesSelector API
+    var matchesSelector = element.matches || element.webkitMatchesSelector || element.mozMatchesSelector || element.oMatchesSelector || element.matchesSelector || element.msMatchesSelector;
+    //
+    if ( matchesSelector )return matchesSelector.call( element, selector );
   }
 };
 
@@ -804,6 +845,7 @@ $.fn = {
   },
   // 清空 元素里的DOM节点
   empty: function() {
+    // 遍历 Base对象集合，并返回 Base对象
     return this.each( function() {
       // 清空 DOM节点
       this.innerHTML = '';
@@ -831,6 +873,7 @@ $.fn = {
     // 返回 Base对象
     return this;
   },
+  // 在 Base对象集合中符合css选择器的元素
   find: function( selector ) {
     // selector未传参，返回 Base对象
     if ( !selector ) return this;
@@ -839,6 +882,69 @@ $.fn = {
       // 将 Base对象集合的第一个元素作为上下文传递到qsa方法，并返回 Base对象，这里的context是作为seletor传值的
       return $( base.qsa( this[ 0 ], selector ), this.selector + ' ' + selector );
     }
+  },
+  // 获取元素的父节点(不传值) || 如果 selector传递了选择器，则过滤出符合要求的元素
+  parent: function( selector ) {
+    var nodes = [];
+    // 遍历 Base对象集合
+    this.each( function( index ) {
+      // 将每个元素的父节点写入数组
+      nodes[ index ] = this.parentNode;
+    } );
+    // 这里最终返回的还是 Base对象，unrepeat函数的作用是去除重复的元素节点
+    return filtered( unrepeat( nodes ), selector, this.selector );
+  },
+  before: function( txt ) {
+
+  },
+  after: function( txt ) {
+
+  },
+  // 过滤 Base对象对象集合，返回满足css选择器的集合
+  filter: function( selector ) {
+    // selector传递的是 函数，就返回 not方法的反值
+    if (isFunction(selector)) return this.not( this.not( selector ) );
+    // selector传递的是 字符串
+    if ( isStr( selector ) ) {
+      // 遍历 Base对象集合，并返回 Base对象(filter方法返回的是一个数组)
+      return $( filter.call( this, function( item ) {
+        // 通过 matches方法判断元素是否匹配给定的选择器，不匹配就返回 false
+        return base.matches( item, selector );
+        // 这里的contenxt是作为selector传值的
+      } ), this.selector + selector );
+    }
+  },
+  // 过滤 Base对象对象集合，返回不能满足css选择器的集合(和filter功能相反)
+  not: function( selector ) {
+    var nodes = [],
+        excludes;
+
+    // selector传递的是 函数
+    if ( isFunction( selector ) ) {
+      // 遍历 Base对象集合
+      this.each( function( index ) {
+        // 回调函数返回false时，就将元素写入数组
+        if ( !funcArg( this, selector, index ) ) nodes.push( this );
+      } );
+    }
+
+    // selector传递的是 字符串
+    if ( isStr( selector ) ) {
+      //debugger
+      // 通过 filter方法 找出需要排除的元素
+      excludes = this.filter( selector );
+      // 遍历 Base对象集合
+      this.forEach( function( item ) {
+        // 排除掉要过过滤的元素
+        if ( excludes.indexOf( item ) < 0 ) {
+          // 将元素写入数组
+          nodes.push( item )
+        }
+      } );
+    }
+
+    // 返回 Base对象
+    return $( nodes );
   }
 }
 
