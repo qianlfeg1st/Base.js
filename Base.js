@@ -11,6 +11,8 @@ var $,
     version = '0.0.1',
     // document对象
     document = window.document,
+    // location对象
+    location = window.location,
     // HTML代码片断的正则
     fragmentRE = /^\s*<(\w+|!)[^>]*>/,
     // 空数组...
@@ -95,7 +97,10 @@ function B( dom, selector ) {
 
 // 判断数据类型
 function type( val ) {
-  switch ( Object.prototype.toString.call( val ) ) {
+  // 获取val内部的 [[ class ]]值
+  var types = Object.prototype.toString.call( val );
+
+  switch ( types ) {
     // 函数
     case '[object Function]':
       return 'function';
@@ -147,10 +152,20 @@ function type( val ) {
     // weakmap
     case '[object WeakMap]':
       return 'weakmap';
-    // 默认返回 false
-    default:
-      return false;
+    // NodeList
+    case '[object NodeList]':
+      return 'NodeList';
+    // NodeList
+    case '[object HTMLCollection]':
+      return 'NodeList';
   }
+
+  if ( types.indexOf( 'Element' ) > 0 ) {
+    return 'element';
+  }
+
+  // 默认返回 false
+  return false;
 }
 
 // 是否为 字符串
@@ -371,6 +386,42 @@ function filtered( nodes, selector, chilren ) {
 
   // selector未传参
   return !selector ? $( nodes, chilren + ' parent' ) : $( nodes ).filter( selector );
+}
+
+// 获取 url地址中的参数，如果传参则获取一个对象
+function param( str ) {
+  var param = {},
+      items,
+      key,
+      search = location.search;
+
+  // url字符串问号开始后的字符串的长度
+  if ( search.length ) {
+    // 先去掉第一个问号，然后再将字符串用'&'分割成数字，最后遍历
+    search.substring( 1 ).split('&').forEach( function( item ) {
+      // 将数组里的每个成员(字符串)，用等号再分割成数组，例子：'name=qianlifeng' => ['name', 'qianlifeng']
+      items = item.split('=');
+      // 属性名(key)
+      key = decodeURIComponent( items[ 0 ] ).trim();
+      // key不为空
+      if ( key.length ) {
+        // 通过下标的形式，将属性和属性值写入对象
+        param[ key ] = decodeURIComponent( items[ 1 ] ).trim();
+      }
+    } );
+  }
+
+  // 至少传了一个参数
+  if ( 0 in arguments ) {
+    // str传递的必须是 字符串
+    if ( isStr( str ) ) {
+      // 将str的属性值赋给param
+      param = param[ str ];
+    }
+  }
+
+  // 最后返回 param
+  return param;
 }
 
 base = {
@@ -971,8 +1022,12 @@ $.fn = {
 }
 
 // 在JS中函数是一种特殊的对象，也能添加属性
-// 添加静态方法type(将私有函数type()，暴露给外部使用)
+
+// 静态方法 type()，将私有函数type()，暴露给外部使用
 $.type = type;
+
+// 静态方法 param()
+$.param = param;
 
 // 构造函数B 的原型链指向 '$.fn'，那么B构造的实例都将继承 '$.fn'中的方法和属性
 B.prototype = $.fn;
