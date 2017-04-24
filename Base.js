@@ -1160,6 +1160,25 @@ $.fn = {
 
     // 返回 Base对象
     return $( nodes );
+  },
+  // 返回集合中的第一个元素
+  first: function() {
+    var element = this[ 0 ];
+    return element && ( !isObject( element ) ? element : $( element ) );
+  },
+  // 返回集合中的最后一个元素
+  last: function() {
+    var element = this[ this.length - 1 ];
+    return element && ( !isObject( element ) ? element : $( element ) );
+  },
+  // 获取集合的子集，从start开始，如果给定end，提取从从start开始到end结束的元素，但是不包含end位置的元素
+  slice: function( start, end ) {
+    // 借用数组的slice方法，并返回 Base对象
+    return $( slice.apply( this, arguments ) );
+  },
+  // 从集合中获取给定索引值的元素(以0为基数)
+  eq: function( index ) {
+    return index === -1 ? this.slice( index ) : this.slice( index, +index + 1 );
   }
 }
 
