@@ -578,9 +578,9 @@ base = {
       // selector 传递的是 HTML
       if ( selector[ 0 ] === '<' && fragmentRE.test( selector ) ) {
         // 创建 DOM节点
-        dom = this.fragment( selector, RegExp.$1, context );
+        //dom = this.fragment( selector, RegExp.$1, context );
         // 由于传入的是HTML 这里必须清空selector
-        selector = null;
+        //selector = null;
       } else {
         // context 传递了上下文
         if ( context !== undefined ) {
@@ -1179,6 +1179,22 @@ $.fn = {
   // 从集合中获取给定索引值的元素(以0为基数)
   eq: function( index ) {
     return index === -1 ? this.slice( index ) : this.slice( index, +index + 1 );
+  },
+  // 向元素添加新的子节点，作为最后一个子节点
+  append: function( html ) {
+    // 遍历集合，并返回 Base对象
+    return this.each( function() {
+      // 添加子节点
+      this.appendChild( base.fragment( html )[ 0 ] );
+    } );
+  },
+  appendTo: function( target ) {
+    var self = this;
+    // 遍历集合，并返回 Base对象
+    return $( target ).each( function() {
+      // 添加子节点
+      this.appendChild( base.fragment( self.selector )[ 0 ] );
+    } );
   }
 }
 
