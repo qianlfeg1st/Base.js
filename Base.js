@@ -437,6 +437,7 @@ function param( str ) {
   return param;
 }
 
+// ajax方法
 function ajax( _ref ) {
   var _ref$type = _ref.type,
       type = _ref$type === undefined ? 'get' : _ref$type,
@@ -473,14 +474,14 @@ function ajax( _ref ) {
   // 格式化发送到服务器的数据，转换为key=value&key=value这种格式
   var formatData = function formatData() {
     // 如果用户设置了要发送的数据
-    if (data) {
+    if ( data ) {
       var arr = [];
-      for (var key in data) {
-        arr.push(encodeURIComponent(key) + '=' + encodeURIComponent(data[key]));
+      for ( var key in data ) {
+        arr.push( encodeURIComponent( key ) + '=' + encodeURIComponent( data[key] ) );
       }
       // 禁止浏览器缓存
-      arr.push('time=' + +new Date());
-      return arr.join('&');
+      arr.push( 'time=' + +new Date() );
+      return arr.join( '&' );
     }
   };
 
@@ -490,10 +491,10 @@ function ajax( _ref ) {
   // 设置额外的HTTP头信息
   var setHeaders = function setHeaders() {
     // 如果用户设置了额外的头信息
-    if (headers) {
-      for (var key in headers) {
+    if ( headers ) {
+      for ( var key in headers ) {
         // 批量设置头信息
-        xhr.setRequestHeader(key, headers[key]);
+        xhr.setRequestHeader( key, headers[key] );
       }
     }
   };
@@ -504,19 +505,19 @@ function ajax( _ref ) {
     xhr = new XMLHttpRequest();
   } catch (e) {
     // 兼容IE6的方法
-    xhr = new ActiveXObject('Microsoft.XMLHTTP');
+    xhr = new ActiveXObject( 'Microsoft.XMLHTTP' );
   }
 
   // 初始化 HTTP请求
-  xhr.open(type, url, async);
+  xhr.open( type, url, async );
 
   // 执行beforeSend回调，并获取返回值
-  closed = beforeSend ? beforeSend(xhr) : true;
+  closed = beforeSend ? beforeSend( xhr ) : true;
 
   // 判断是否手动取消了请求
-  if (closed || closed === undefined) {
+  if ( closed || closed === undefined ) {
     // 没有取消请求，发起请求
-    isGet ? xhr.send(null) : (xhr.setRequestHeader('content-type', contentType), setHeaders(), xhr.send(formatData()));
+    isGet ? xhr.send( null ) : ( xhr.setRequestHeader( 'content-type', contentType ), setHeaders(), xhr.send( formatData() ) );
   } else {
     // 取消请求
     return;
@@ -524,19 +525,19 @@ function ajax( _ref ) {
 
   // 监听readyState属性
   xhr.onreadystatechange = function () {
-    if (xhr.readyState === 4) {
+    if ( xhr.readyState === 4 ) {
       // 执行complete回调
-      complete ? complete(xhr, xhr.status) : null;
+      complete ? complete( xhr, xhr.status ) : null;
       // 请求成功，状态>=200 && < 300 表示成功
-      if (xhr.status >= 200 && xhr.status < 300) {
-        switch (dataType) {
+      if ( xhr.status >= 200 && xhr.status < 300 ) {
+        switch ( dataType ) {
           case 'json':
             try {
               // 使用JSON.parse()序列化字符串
-              response = JSON.parse(xhr.responseText);
+              response = JSON.parse( xhr.responseText );
             } catch (e) {
               // 使用(new Function('return ' + str))()序列化字符串
-              response = new Function('return ' + xhr.responseText)();
+              response = new Function( 'return ' + xhr.responseText )();
             }
             break;
           case 'text':
@@ -547,11 +548,11 @@ function ajax( _ref ) {
             break;
         }
         // 执行success回调
-        success ? success(response, xhr.status, xhr) : null;
+        success ? success( response, xhr.status, xhr ) : null;
       // 请求失败
       } else {
         // 执行error回调
-        error ? error(xhr.statusText, xhr.status, xhr) : null;
+        error ? error( xhr.statusText, xhr.status, xhr ) : null;
       }
     }
   };
@@ -578,7 +579,6 @@ base = {
       if ( selector[ 0 ] === '<' && fragmentRE.test( selector ) ) {
         // 创建 DOM节点
         dom = this.fragment( selector, RegExp.$1, context );
-        debugger;
         // 由于传入的是HTML 这里必须清空selector
         selector = null;
       } else {
@@ -713,11 +713,12 @@ base = {
       // 将HTML代码片段放入容器
       container.innerHTML = '' + html;
       // 获取容器的子节点，这样就把字符串转成 DOM节点了
-      // 顺便把 NodeList转换为数组，方便后面遍历
-      dom = slice.call( container.childNodes );
+      dom = $.each( slice.call( container.childNodes ), function() {
+        container.removeChild( this );
+      } );
 
       // 传入了上下文
-      if ( type( properties ) ) {
+      if ( isObject( properties ) ) {
         // 将DOM节点转换成Base对象，为了方便下面调用base上的方法
         nodes = $( dom );
         // 遍历对象，设置属性
@@ -1092,6 +1093,7 @@ $.fn = {
     }
   },
   // 获取元素的父节点(不传值) || 如果 selector传递了选择器，则过滤出符合要求的元素
+  // $( 'p' ).parent( '#n1' ) 等同于 $( 'p' ).parent().filet( 'n1' );
   parent: function( selector ) {
     var nodes = [];
     // 遍历 Base对象集合
@@ -1102,11 +1104,17 @@ $.fn = {
     // 这里最终返回的还是 Base对象，unrepeat函数的作用是去除重复的元素节点
     return filtered( unrepeat( nodes ), selector, this.selector );
   },
-  before: function( txt ) {
-
+  // 在元素前插入内容(外部)
+  before: function( html ) {
+    return this.each( function() {
+      this.parentNode.insertBefore( base.fragment( html )[ 0 ], this );
+    } );
   },
-  after: function( txt ) {
-
+  // 在元素后插入内容(外部)
+  after: function( html ) {
+    return this.each( function() {
+      this.parentNode.insertBefore( base.fragment( html )[ 0 ], this.nextSibling );
+    } );
   },
   // 过滤 Base对象对象集合，返回满足css选择器的集合
   filter: function( selector ) {
@@ -1138,7 +1146,6 @@ $.fn = {
 
     // selector传递的是 字符串
     if ( isStr( selector ) ) {
-      //debugger
       // 通过 filter方法 找出需要排除的元素
       excludes = this.filter( selector );
       // 遍历 Base对象集合
