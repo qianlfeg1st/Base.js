@@ -585,30 +585,31 @@ function cookie( key, {
       index,
       param = {};
 
-if ( arguments.length < 2 ) {
-  // cookie值为空，就返回 看空字符串
-  if ( !cookieVal ) return '';
-  // 用'; '将cookie字符串分割成数组，然后遍历
-  cookieVal.split('; ').forEach( function( item ) {
-    // 第一次出现'='的位置
-    index = item.indexOf('=');
-    // 用下标的方式将属性和属性值写入对象
-    param [ item.slice( 0 , index ) ] = item.slice( index + 1 );
-  } );
-  // key不为空
-  if ( key ) {
-    // key传递的必须是 字符串
-    if ( isStr ) {
-      // 返回 value值
-      return param[ key ];
+  // 传递了两个以下的参
+  if ( arguments.length < 2 ) {
+    // cookie值为空，就返回 看空字符串
+    if ( !cookieVal ) return '';
+    // 用'; '将cookie字符串分割成数组，然后遍历
+    cookieVal.split('; ').forEach( function( item ) {
+      // 第一次出现'='的位置
+      index = item.indexOf('=');
+      // 用下标的方式将属性和属性值写入对象
+      param [ item.slice( 0 , index ) ] = item.slice( index + 1 );
+    } );
+    // key不为空
+    if ( key ) {
+      // key传递的必须是 字符串
+      if ( isStr ) {
+        // 返回 value值
+        return param[ key ];
+      }
+    } else {
+      // 返回 param对象
+      return param;
     }
-  } else {
-    // 返回 param对象
-    return param;
   }
-}
 
-  // 传了两个参数
+  // 传递了两个参数
   if ( arguments.length === 2 ) {
     // 第二个参数传递的必须是 对象
     if ( isObject( arguments[ 1 ] ) ) {
@@ -623,6 +624,47 @@ if ( arguments.length < 2 ) {
       // 设置 cookie
       document.cookie = key + '=' + encodeURIComponent( value ) + ';path=' + path + day + ';domain=' + domain + ';';
     }
+  }
+}
+
+// 获取 和 设置 localStorage
+function storage( key, val ) {
+  let storage = window.localStorage;
+
+  // 宿主环境不存在localStorage这个API，就终止执行
+  if ( !storage ) return;
+
+  // 至少传递了两个参数
+  if ( 1 in arguments ) {
+    // 设置 localStorage
+    storage.setItem( key, val );
+  }
+
+  if ( 0 in arguments ) {
+    // 获取 localStorage
+    return storage.getItem( key );
+  } else {
+    // 返回 Storage对象
+    return storage;
+  }
+}
+
+// 删除 和 清空 localStorage
+function removeStorage( key ) {
+
+  let storage = window.localStorage;
+
+  // 宿主环境不存在localStorage这个API，就终止执行
+  if ( !storage ) return;
+
+  // 至少传递了一个参数
+  if ( 0 in arguments ) {
+    // 删除某个值
+    storage.removeItem( key );
+  // 没有传参
+  } else {
+    // 清空 localStorage
+    storage.clear();
   }
 }
 
@@ -1254,6 +1296,7 @@ $.fn = {
       this.appendChild( base.fragment( html )[ 0 ] );
     } );
   },
+  // 将匹配的元素插入到目标元素的末尾
   appendTo: function( target ) {
     var self = this;
     // 遍历集合，并返回 Base对象
@@ -1276,8 +1319,12 @@ $.ajax = ajax;
 $.parseJSON = jsonParse;
 // JSON反序列化
 $.strJSON = jsonStr;
-// 获取设置cookie
+// 获取和设置cookie
 $.cookie = cookie;
+// 获取和设置localStorage
+$.storage = storage;
+// 删除和清空localStorage
+$.removeStorage = removeStorage;
 
 // 构造函数B 的原型链指向 '$.fn'，那么B构造的实例都将继承 '$.fn'中的方法和属性
 B.prototype = $.fn;
