@@ -1332,6 +1332,40 @@ $.fn = {
       // 返回 数组
       return slice.call( this );
     }
+  },
+  // 设置元素的宽度，如果没有传参的话则获取集合中第一个元素的宽度
+  width: function( val ) {
+    // 至少传递了一个参数
+    if ( 0 in arguments ) {
+      // val传递的必须是 字符串、数字、函数中的一种
+      if ( isSNF( val ) ) {
+        // 遍历 Base对象集合，并返回 Base对象
+        return this.each( function( index ) {
+          // 设置元素的宽度
+          $( this ).css( 'width', funcArg( this, val, index, $( this ).width() ) );
+        } );
+      }
+    } else {
+      // 返回 Base对象集合中第一个元素的宽度
+      return +this.eq( 0 ).css( 'width' ).replace( /[a-zA-Z]/g, '' );
+    }
+  },
+  // 设置元素的高度，如果没有传参的话则获取集合中第一个元素的高度
+  height: function( val ) {
+    // 至少传递了一个参数
+    if ( 0 in arguments ) {
+      // val传递的必须是 字符串、数字、函数中的一种
+      if ( isSNF( val ) ) {
+        // 遍历 Base对象集合，并返回 Base对象
+        return this.each( function( index ) {
+          // 设置元素的宽度
+          $( this ).css( 'height', funcArg( this, val, index, $( this ).height() ) );
+        } );
+      }
+    } else {
+      // 返回 Base对象集合中第一个元素的宽度
+      return +this.eq( 0 ).css( 'height' ).replace( /[a-zA-Z]/g, '' );
+    }
   }
 }
 
