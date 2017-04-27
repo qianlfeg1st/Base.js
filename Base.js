@@ -1321,6 +1321,17 @@ $.fn = {
 
     // 返回 Base对象
     return this;
+  },
+  // 获取 元素节点，如果没有传递参数则以数组的方式返回所有元素
+  get: function( index ) {
+    // 至少传递了一个参数
+    if ( 0 in arguments ) {
+      // 返回 元素节点
+      return this[ index ];
+    } else {
+      // 返回 数组
+      return slice.call( this );
+    }
   }
 }
 
