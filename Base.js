@@ -433,7 +433,7 @@ function param( str ) {
     }
   }
 
-  // 最后返回 param
+  // 返回 param
   return param;
 }
 
@@ -1304,6 +1304,23 @@ $.fn = {
       // 添加子节点
       this.appendChild( base.fragment( self.selector )[ 0 ] );
     } );
+  },
+  // 获取 和 设置 data-x-x属性
+  data: function( key, val ) {
+    // 将key中的大写字母前面加上'-'，并转化为小写
+    var name = 'data-' + key.replace( /([A-Z])/g, '-$1' ).toLowerCase();
+
+    // 至少传递了两个参数
+    if ( 1 in arguments ) {
+      // 设置属性
+      this.attr( name, val );
+    } else {
+      // 读取属性
+      return this.attr( name );
+    }
+
+    // 返回 Base对象
+    return this;
   }
 }
 
