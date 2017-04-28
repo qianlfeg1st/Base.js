@@ -1381,6 +1381,17 @@ $.fn = {
         element.hide();
       }
     } );
+  },
+  // 获取元素的索引值
+  index: function( selector ) {
+    // 至少传了一个参数
+    if ( 0 in arguments ) {
+      // 返回 元素在Base对象集合中的索引值
+      return this.indexOf( $( selector )[ 0 ] );
+    } else {
+      // 返回 Base对象集合的第一个元素在兄弟节点中的索引值
+      return this.parent().children().indexOf( this[ 0 ] );
+    }
   }
 }
 
