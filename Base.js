@@ -21,6 +21,8 @@ var $,
     slice = emptyArray.slice,
     // 数组对象的 filter方法
     filter = emptyArray.filter,
+    // 数组对象的 concat方法
+    concat = emptyArray.concat,
     // 创建 table元素
     table = document.createElement('table'),
     // 创建 tr元素
@@ -80,6 +82,42 @@ $.each = function( elements, callback ) {
   }
   return elements;
 };
+
+$.map = function( elements, callback ) {
+  var value,
+      values = [];
+
+  // elements传递的是 类数组 或 数组
+  if ( likeArray( elements ) ) {
+    for ( var i = 0; i < elements.length; i++ ) {
+      // 执行回调，并赋值
+      value = callback( elements[ i ], i );
+      // 过滤掉 null 和 undefined，并将结果写入数组
+      if ( value != null ) values.push( value );
+    }
+  } else {
+    // elements传递的是 对象
+    for ( var key in elements ) {
+      // 执行回调，并赋值
+      value = callback( elements[ key ], key );
+      // 过滤掉 null 和 undefined，并将结果写入数组
+      if ( value != null ) values.push( value );
+    }
+  }
+
+  // if ( values.length > 0 ) {
+  //   return $.fn.concat.apply([], values);
+  // } else {
+  //   return array;
+  // }
+
+  console.info(values);
+  return flatten(values);
+
+}
+
+// 类似得到一个数组的副本
+function flatten(array) { return array.length > 0 ? $.fn.concat.apply([], array) : array }
 
 // Base构造函数
 function B( dom, selector ) {
@@ -668,6 +706,21 @@ function removeStorage( key ) {
   }
 }
 
+// 获取指定元素的子节点(不包含文本节点)
+function children( element ) {
+  // element是元素节点
+  if ( 'children' in element ) {
+    // 转换为数组，并返回
+    return slice.call( element.children );
+  } else {
+    // 遍历集合
+    $.map( element.children, function( node ) {
+      // 如果是元素节点，就返回
+      if ( node.nodeType === 1 ) return node;
+    } );
+  }
+}
+
 base = {
   // 初始化方法
   init: function( selector, context ) {
@@ -866,15 +919,28 @@ $.fn = {
   sort: emptyArray.sort,
   splice: emptyArray.splice,
   indexOf: emptyArray.indexOf,
-  //  遍历数组的方法
+  concat: function(){
+    var i, value, args = []
+    for (i = 0; i < arguments.length; i++) {
+      value = arguments[i]
+      args[i] = base.isB(value) ? value.toArray() : value
+    }
+    return concat.apply(base.isB(this) ? this.toArray() : this, args)
+  },
+  // 遍历Base对象集合的方法，其实就是遍历数组
   each: function( callback ) {
-    // 借用数组的 every方法(第一次返回，就返回false) 进行迭代
+    // 借用数组的 every方法进行迭代(第一次返回，就返回false)
     emptyArray.every.call( this, function( item, index ) {
       // 当callback(回调函数)返回false时，就停止迭代，否则会遍历整个数组
       return callback.call( item, index, item ) !== false;
     });
     // 返回 Base对象
     return this;
+  },
+  map: function( fn ) {
+    return $( $.map( this, function( el, i ) {
+      return fn.call( el, i, el );
+    } ) );
   },
   // 当DOM构建完成后执行回调函数
   ready: function( callback ) {
@@ -886,7 +952,7 @@ $.fn = {
       setTimeout( function() {
         // 执行回调函数
         callback();
-      } );
+      }, 0 );
     // DOM还未构建完成
     } else {
       // 注册 DOMContentLoaded事件触发回调
@@ -898,7 +964,7 @@ $.fn = {
   },
   // 获取 DOM节点的数量
   size: function() {
-    // 返回 DOM节点的个数
+    // 返回 Base对象集合的length属性
     return this.length;
   },
   // 检查 是否有元素含有指定的 类(class)
@@ -965,7 +1031,7 @@ $.fn = {
       className( this, classList );
     } );
   },
-  // 获取 或 设置CSS值
+  // 获取 和 设置CSS值
   css: function( property, val ) {
     // 获取对象集合的第一个元素
     var element = this[ 0 ];
@@ -1056,7 +1122,7 @@ $.fn = {
     // 通过css方法设置，并返回 Base对象
     return this.css( 'display', 'none' );
   },
-  // 获取 或 设置 属性值
+  // 获取 和 设置 属性值
   attr: function( name, val ) {
     var result,
         newValue,
@@ -1120,7 +1186,7 @@ $.fn = {
     // 返回 Base对象
     return this;
   },
-  // 获取 或 设置 文本内容
+  // 获取 和 设置 文本内容
   text: function( txt ) {
     // 至少传了一个参数，txt的值必须是字符串和数子和函数之中的一个
     if ( 0 in arguments && isSNF( txt ) ) {
@@ -1140,7 +1206,7 @@ $.fn = {
     // 返回 Base对象
     return this;
   },
-  // 获取 或 设置 html内容
+  // 获取 和 设置 html内容
   html: function( txt ) {
     // 至少传了一个参数，txt的值必须是字符串和数子和函数之中的一个
     if ( 0 in arguments && isSNF( txt ) ) {
@@ -1160,7 +1226,7 @@ $.fn = {
     //返回 Base对象
     return this;
   },
-  // 清空 元素里的DOM节点
+  // 清空 Base对象集合里每个元素的内容
   empty: function() {
     // 遍历 Base对象集合，并返回 Base对象
     return this.each( function() {
@@ -1168,7 +1234,7 @@ $.fn = {
       this.innerHTML = '';
     } );
   },
-  // 获取 或 设置 value值
+  // 获取 和 设置 value值
   val: function( txt ) {
     // 至少传了一个参数，txt的值必须是字符串和数子和函数之中的一个
     if ( 0 in arguments && isSNF( txt ) ) {
@@ -1269,12 +1335,12 @@ $.fn = {
     // 返回 Base对象
     return $( nodes );
   },
-  // 返回集合中的第一个元素
+  // 返回Base对象集合中的第一个元素
   first: function() {
     var element = this[ 0 ];
     return element && ( !isObject( element ) ? element : $( element ) );
   },
-  // 返回集合中的最后一个元素
+  // 返回Base对象集合中的最后一个元素
   last: function() {
     var element = this[ this.length - 1 ];
     return element && ( !isObject( element ) ? element : $( element ) );
@@ -1392,6 +1458,34 @@ $.fn = {
       // 返回 Base对象集合的第一个元素在兄弟节点中的索引值
       return this.parent().children().indexOf( this[ 0 ] );
     }
+  },
+  // 获取 子元素
+  children: function( selector ) {
+    var arr = [];
+    var node = [];
+
+    // 遍历 Base对象集合
+    this.each( function() {
+      // 是元素节点，合并所有子节点数组
+      if ( 'children' in this ) arr = arr.concat( slice.call( this.children ) );
+    } );
+
+    // 至少传递了一个参数
+    if ( 0 in arguments ) {
+      // 遍历数组
+      $.each( arr, function( index, item ) {
+        // 判断元素的父节点是否能匹配给定的选择器
+        if ( base.matches( item.parentNode, selector ) ) {
+          // 将匹配到的元素写入数组
+          node.push( item );
+        }
+      } );
+      // 返回 Base对
+      return $( node );
+    }
+
+    // 返回 Base对象
+    return $( arr );
   }
 }
 
