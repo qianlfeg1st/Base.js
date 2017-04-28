@@ -1366,6 +1366,21 @@ $.fn = {
       // 返回 Base对象集合中第一个元素的宽度
       return +this.eq( 0 ).css( 'height' ).replace( /[a-zA-Z]/g, '' );
     }
+  },
+  // 显示 或 隐藏匹配的元素
+  toggle: function( val ) {
+    // 遍历Base对象集合，并返回 Base对象
+    return this.each( function() {
+      // 将元素节点转换为 Base对象
+      var element = $( this );
+      if ( val ) {
+        // 显示元素
+        element.show();
+      } else {
+        // 隐藏元素
+        element.hide();
+      }
+    } );
   }
 }
 
