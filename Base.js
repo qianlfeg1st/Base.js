@@ -1488,6 +1488,46 @@ $.fn = {
   // 获取集合中第一个元素的上一个兄弟节点
   prev: function() {
     return $( this.get( 0 ).previousElementSibling );
+  },
+  // 获取集合中第一个元素的已定位的父元素，默认的父元素就是body
+  offsetParent: function() {
+    return $( this[ 0 ].offsetParent || document.body );
+  },
+  // 获取 和 设置 元素的位置
+  offset:  function( obj ) {
+    // 至少传递了一个参数
+    if ( 0 in arguments ) {
+      // 遍历 Base对象集合，并返回 Base对象
+      return this.each( function( index ) {
+            // 缓存 Base对象
+        var $this = $( this ),
+            // 处理参数是函数的情况
+            coords = funcArg( this, obj, index, $this.offset() ),
+            // 已定位的父元素的位置
+            parentOffset = $this.offsetParent().offset(),
+            props = {
+              top:  coords.top  - parentOffset.top,
+              left: coords.left - parentOffset.left
+            };
+        // 元素没有定位的话，就添加相对定位 'relative'
+        if ( $this.css( 'position' ) === 'static' ) props[ 'position' ] = 'relative';
+        // 设置位置
+        $this.css( props );
+      } );
+    }
+    // Base对象集合中没有元素，就返回 null
+    if ( !this.size() ) return null;
+    // 获取元素位置对象
+    var point = this[ 0 ].getBoundingClientRect();
+    // 返回 元素位置
+    return {
+      top: point.top + window.pageYOffset,
+      bottom: point.bottom + window.pageYOffset,
+      left: point.left + window.pageXOffset,
+      right: point.right + window.pageXOffset,
+      width: Math.round( point.width ),
+      height: Math.round( point.height )
+    }
   }
 }
 
