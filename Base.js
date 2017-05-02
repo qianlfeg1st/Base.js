@@ -105,13 +105,6 @@ $.map = function( elements, callback ) {
     }
   }
 
-  // if ( values.length > 0 ) {
-  //   return $.fn.concat.apply([], values);
-  // } else {
-  //   return array;
-  // }
-
-  console.info(values);
   return flatten(values);
 
 }
@@ -198,6 +191,7 @@ function type( val ) {
       return 'NodeList';
   }
 
+  // Element
   if ( types.indexOf( 'Element' ) > 0 ) {
     return 'element';
   }
@@ -1480,12 +1474,20 @@ $.fn = {
           node.push( item );
         }
       } );
-      // 返回 Base对
+      // 返回 Base对象
       return $( node );
     }
 
     // 返回 Base对象
     return $( arr );
+  },
+  // 获取集合中第一个元素的下一个兄弟节点
+  next: function() {
+    return $( this.get( 0 ).nextElementSibling );
+  },
+  // 获取集合中第一个元素的上一个兄弟节点
+  prev: function() {
+    return $( this.get( 0 ).previousElementSibling );
   }
 }
 
