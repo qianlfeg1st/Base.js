@@ -1528,6 +1528,26 @@ $.fn = {
       width: Math.round( point.width ),
       height: Math.round( point.height )
     }
+  },
+  // 获取集合中第一个元素的兄弟节点，如果给定选择器参数，过滤出符合选择器的元素
+  siblings: function( selector ) {
+    var nodes = [],
+        $this = this.parent().children().not( this.selector );
+    // 至少传了一个参数
+    if ( 0 in arguments ) {
+      // 遍历 Base对象集合
+      $this.each( function() {
+        // 能匹配给定的选择器的话
+        if ( base.matches( this, selector ) ) {
+          // 将 元素写入数组
+          nodes.push( this );
+        }
+      } );
+      // 返回 Base对象
+      return $( nodes );
+    }
+    // 返回 Base对象
+    return $this;
   }
 }
 
