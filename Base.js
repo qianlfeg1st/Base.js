@@ -15,7 +15,7 @@ var $,
     location = window.location,
     // HTML代码片断的正则
     fragmentRE = /^\s*<(\w+|!)[^>]*>/,
-    // 空数组...
+    // 空数组
     emptyArray = [],
     // 数组对象的 slice方法
     slice = emptyArray.slice,
@@ -317,7 +317,6 @@ function className( node, value ) {
     }
   }
 }
-
 // 这个函数在整个库中取着很重要的作用，处理参数(arg)为 函数 或 值 的情况
 // 因为很多方法，不仅可以传递字符串，还能传递函数
 function funcArg( context, arg, index, payload ) {
@@ -779,6 +778,12 @@ base = {
     // selector传递的是 Document对象
     if ( isDoc( selector ) ) {
       dom = [ document ];
+      selector = null;
+    }
+
+    // selector传递的是 Window对象
+    if ( isWindow( selector ) ) {
+      dom = [ selector ];
       selector = null;
     }
 
@@ -1548,6 +1553,33 @@ $.fn = {
     }
     // 返回 Base对象
     return $this;
+  },
+  // 获取 和 设置 页面上的滚动元素 和 整个页面 向下滚动的距离
+  scrollTop: function( val ) {
+    // 集合中没有元素，就终止执行
+    if ( !this.length ) return;
+    // 缓存 集合的第一个元素
+    var node = this[ 0 ];
+    // 集合中的第一个元素是否拥有 scrollTop这个属性
+    var hasScrollTop = 'scrollTop' in node;
+    // 未传参
+    if ( arguments.length === 0 ) {
+      // 返回 body.scrollTop 或者 window.pageYOffset
+      return hasScrollTop ? node.scrollTop : node.pageYOffset;
+    }
+    // 遍历 Base对象集合，并返回 Base对象
+    return this.each( function() {
+      // 存在 scrollTop属性的话
+      if ( hasScrollTop ) {
+        // 通过 scrollTop去设置
+        this.scrollTop = val;
+      } else {
+        // 通过 scrollTo去设置
+        this.scrollTo( this.scrollX, val );
+      }
+    } );
+
+
   }
 }
 
