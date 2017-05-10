@@ -1579,9 +1579,25 @@ $.fn = {
       }
     } );
   },
-  //
-  scrollLeft: function( val ) {
+  // 从元素本身开始，逐级向上级元素匹配，并返回最先匹配selector的元素
+  closest: function( selector, context ) {
+        // 缓存DOM节点
+    var nodes = [],
+        // selector传递的不是对象的话(字符串)，就转换为 Base对象并赋值
+        collection = isObject( selector ) && $( selector );
 
+    // 遍历 Base对象集合，并返回 Base对象
+    this.each( function( _, node ){
+      // node不为空，并在Base对象中查找到了node节点 或者 selector(选择器字符串)不能匹配到node
+      while ( node && !( collection ? collection.indexOf( node ) >= 0 : base.matches( node, selector ) ) ) {
+        // 当node 不是 context、document时，获取父节点
+        node = node !== context && !isDoc( node ) && node.parentNode;
+      }
+      // 当 node节点存在，并且在缓存中(nodes)查找不到的话，就将node节点写入缓存
+      if ( node && nodes.indexOf( node ) < 0 ) nodes.push( node );
+    } );
+    // 返回 Base对象
+    return $( nodes );
   }
 }
 
@@ -1606,6 +1622,7 @@ $.removeStorage = removeStorage;
 
 $.isFunction = isFunction;
 $.isStr = isStr;
+$.isObject = isObject;
 
 // 构造函数B 的原型链指向 '$.fn'，那么B构造的实例都将继承 '$.fn'中的方法和属性
 B.prototype = $.fn;
@@ -1624,19 +1641,27 @@ return $;
 );
 
 ;(function( $ ) {
-    // 每个元素唯一的ID
+    // Base对象集合每个元素对应的ID，初始值是 1
 var _bid = 1,
     // 是否为函数
     isFunction = $.isFunction,
     // 是否为字符串
     isStr = $.isStr,
+    // 是否为对象
+    isObject = $.isObject,
     // 数组对象的slice方法
     slice = Array.prototype.slice,
-    //
+    // 缓存处理过的事件对象
     handlers = {},
-    hover = { mouseenter: 'mouseover', mouseleave: 'mouseout' },
+    hover = {
+      mouseenter: 'mouseover',
+      mouseleave: 'mouseout'
+    },
     focusinSupported = 'onfocusin' in window,
-    focus = { focus: 'focusin', blur: 'focusout' },
+    focus = {
+      focus: 'focusin',
+      blur: 'focusout'
+    },
     eventMethods = {
       // 阻止默认事件
       preventDefault: 'isDefaultPrevented',
@@ -1645,8 +1670,12 @@ var _bid = 1,
       // 阻止事件冒泡
       stopPropagation: 'isPropagationStopped'
     },
-    returnTrue = function() { return true },
-    returnFalse = function() { return false };
+    returnTrue = function() {
+      return true;
+    },
+    returnFalse = function() {
+      return false;
+    };
 
 // 给 Base对象里的元素设置唯一的ID 或者 取出元素的ID
 function bid( element ) {
@@ -1716,11 +1745,21 @@ function compatible( event, source ) {
   return event;
 }
 
-// 注册事件方法
+/**
+ * 事件绑定
+ * @param {NodeList}   element   元素节点
+ * @param {String}     events    事件类型
+ * @param {Function}   fn        回调函数
+ * @param {String}     selector  【可选】 事件委托的节点选择器
+ * @param {Object}     data      【可选】 额外的参数
+ * @param {Function}   delegator 【可选】
+ * @param {Boolean}    capture   【可选】 事件是否在捕获或冒泡阶段执行
+ */
 function add( element, events, fn, data, selector, delegator, capture ) {
-      // Base对象集合中每个元素的 ID
+  //debugger
+      // Base对象集合中每个元素对应的 ID
   var id = bid( element ),
-      //
+      // 在缓存中读取每个元素绑定过的事件，如果缓存中查找不到的话，就在缓存中添加一个元素，初始值是空数组，并且set的值也是空数组
       set = ( handlers[ id ] || ( handlers[ id ] = [] ) );
 
   // 传入多个事件的话，把 events(字符串)用空白字符分割成数组，然后遍历
@@ -1730,37 +1769,52 @@ function add( element, events, fn, data, selector, delegator, capture ) {
     var callback = delegator || fn;
     // 处理带命名空间的事件
     var handler = parse( event );
-    // 回调函数
-    handler.fn = fn;
-    // 选择器
+    // 事件委托的节点选择器
     handler.sel = selector;
     // 传入事件的个数
     handler.i = set.length;
     // 是否移除事件
     handler.del = delegator;
-    //
-    handler.i = set.length;
-    //
+    // 未处理过的回调函数
+    handler.fn = fn;
+    // 处理后的回调函数(扩展了事件对象，添加了几个属性和方法)
     handler.proxy = function( e ) {
+      // 给event添加了几个方法
       e = compatible( e );
-      //if ( e.isImmediatePropagationStopped() ) return;
-      //e.data = data;
-      var result = callback.apply( element, e._args === undefined ? [ e ] : [ e ].concat( e.args ) );
+      // 在回调中执行了'e.stopImmediatePropagation'方法，就终止执行
+      if ( e.isImmediatePropagationStopped() ) return;
+      // 在event中，增加data属性
+      e.data = data;
+      // 执行回调，并赋值
+      // _args仅仅在trigger和triggerHandler方式调用时才有
+      var result = callback.apply( element, e._args === undefined ? [ e ] : [ e ].concat( e._args ) );
+
       if ( result === false ) {
+        // 阻止默认事件
         e.preventDefault();
+        // 阻止事件冒泡
         e.stopPropagation();
       }
       return result;
     }
 
-
-    if ( handler.e in hover ) fn = function( e ) {
-      var related = e.relatedTarget;
-      if ( !related || ( related !== this && !$.contains( this, related ) ) ) {
-        return handler.fn.apply(this, arguments)
+    // 处理 mouseover 和 mouseout事件
+    if ( handler.e in hover ) {
+      // 回调函数
+      fn = function( e ) {
+        // relatedTarget属性仅对mouseout,mouseover有效
+        // mouseover而言，是指移入目标节点前离开的那个节点
+        // mouseout而言，是指移出目标节点进入的那个节点
+        var related = e.relatedTarget;
+        //  事件已经触发完成
+        if ( !related || ( related !== this && !$.contains( this, related ) ) ) {
+          // 执行相应的事件处理函数
+          return handler.fn.apply( this, arguments )
+        }
       }
     }
 
+    // 将事件对象(handler)写入handlers缓存中
     set.push( handler );
 
     // 支持'addEventListener'这个API的话
@@ -1784,41 +1838,51 @@ function remove( element, events, fn, selector, capture ) {
 
 }
 
+// 添加事件绑定
 $.fn.on = function( event, selector, data, callback, one ) {
   var autoRemove,
       delegator,
       $this = this;
 
-  // event传递的是 对象或数组
-  if ( event && !isStr( event ) ) {
-    // 遍历
+  // 主要处理 on( { type: function() {}, type2: function() {} }, [selector] ) 这种情况
+  if ( event && isObject( event ) ) {
+    // 遍历对象
     $.each( event, function( type, fn ) {
-      // 递归
+      // 递归注册事件
       $this.on( type, selector, data, fn, one );
     } );
     // 返回 Base对象
     return $this;
   }
 
-  // 主要处理 on( type, [selector], function( e ){ ... } ) 这种情况
+  // 主要处理 on( type, data ,function( e ){ ... } ) 这种情况
   if ( !isStr( selector ) && !isFunction( callback ) && callback !== false ) {
+    // 第三个参数传递的可能是 函数
     callback = data;
+    // 第二个参数传递的可能是 对象 或者 函数
     data = selector;
+    // 清空第二个参数
     selector = undefined;
   }
 
   // 主要处理 on( type, function( e ){ ... } ) 这种情况
   if ( callback === undefined || data === false ) {
+    // 第三个参数传递的是 函数
     callback = data;
+    // 清空第三个参数
     data = undefined;
   }
 
   // 传入false为处理函数，默认为阻止默认事件，阻止冒泡
-  if ( callback === false ) callback = returnFalse;
+  // 例子 $('a').on( type, [selector], [data], false );
+  if ( callback === false ) {
+    // function(){ return false; } 的简写
+    callback = returnFalse;
+  }
 
-  //
-  return $this.each( function( index, item ) {
-    // one传递了值，说明只需要触发一次事件
+  // 遍历 Base对象集合，并返回 Base对象
+  return $this.each( function( index, element ) {
+    // one传递了值，说明该事件只需要触发一次
     if ( one ) {
       // 移除事件绑定的匿名函数
       autoRemove = function( e ) {
@@ -1827,28 +1891,36 @@ $.fn.on = function( event, selector, data, callback, one ) {
       }
     }
 
-    //
+    // selector不为空
     if ( selector ) {
-      // 事件委托实现
+      //
       delegator = function( e ) {
+        console.info('1906', $( e.target ).closest( selector, element ));
         var evt,
             // 从元素本身开始，逐级向上级元素匹配，并返回最先匹配selector的元素
             match = $( e.target ).closest( selector, element ).get( 0 );
 
+        // match不为空，并且子节点不能和父节点相同
         if ( match && match !== element ) {
-
+          // 生成代理事件对象
+          evt = $.extend( createProxy(e), {
+            currentTarget: match,
+            liveFired: element
+          } );
+          return ( autoRemove || callback ).apply( match, [ evt ].concat( slice.call( arguments, 1 ) )
+          );
         }
 
 
       }
     }
 
-    // 注册事件
-    add( item, event, callback, data, selector, delegator || autoRemove );
+    // 核心，实现事件绑定
+    add( element, event, callback, data, selector, delegator || autoRemove );
   } );
-
 }
 
+// 移除事件绑定
 $.fn.off = function( event, selector, callback ) {
   var $this = this;
 
