@@ -200,6 +200,11 @@ function type( val ) {
   return false;
 }
 
+// 是否为 布尔值
+function isBoolean( val ) {
+  return type( val ) === 'boolean';
+}
+
 // 是否为 字符串
 function isStr( val ) {
   return type( val ) === 'string';
@@ -712,6 +717,11 @@ function children( element ) {
       if ( node.nodeType === 1 ) return node;
     } );
   }
+}
+
+// 对于通过字面量定义的对象和new Object的对象返回true，new Object时传参数的返回false
+function isPlainObject( obj ) {
+  return isObject( obj ) && !isWindow( obj ) && Object.getPrototypeOf( obj ) === Object.prototype;
 }
 
 base = {
@@ -1581,7 +1591,7 @@ $.fn = {
   },
   // 从元素本身开始，逐级向上级元素匹配，并返回最先匹配selector的元素
   closest: function( selector, context ) {
-        // 缓存DOM节点
+        // 缓存sDOM节点
     var nodes = [],
         // selector传递的不是对象的话(字符串)，就转换为 Base对象并赋值
         collection = isObject( selector ) && $( selector );
@@ -1599,6 +1609,51 @@ $.fn = {
     // 返回 Base对象
     return $( nodes );
   }
+}
+
+// 扩展，deep表示是否深度扩展
+function extend( target, source, deep ) {
+  // 遍历 source对象
+  for ( var key in source ) {
+    // 需要深度扩展
+    if ( deep && ( isPlainObject( source[ key ] ) || isArray( source[ key ] ) ) ) {
+      // 需要扩展的是对象，并且target相对的key不是对象
+      if ( isPlainObject( source ) && !isPlainObject( target[ key ] ) ) {
+        target[ key ] = {};
+      }
+      // 需要扩展的数据是数组，并且target相对应的key不是数组
+      if ( isArray( source[ key ] ) && !isArray( target[ key ] ) ) {
+        target[ key ]= [];
+      }
+      // 递归
+      extend( target[ key ], source[ key ], deep );
+    }
+    if ( source[ key ] !== undefined ) {
+      target[ key ] = source[ key ]
+    }
+  }
+}
+
+$.extend = function( target ) {
+      // 表示是否深度扩展
+  var deep,
+      // 将 arguments转换为数组，并且删除第一个参数，然后赋值给 args
+      args = slice.call( arguments, 1 );
+
+  // target(第一个参数)传递的是 布尔值，表示是否深度扩展
+  if ( isBoolean( target ) ) {
+    // 将 target(布尔值) 赋值给deep
+    deep = target;
+    // 删除参数数组中的第一个成员(布尔值)，返回一个新的数组，然后赋值给 target变量
+    target = args.shift();
+  }
+  // 遍历参数，全部扩展到 target上
+  args.forEach( function( arg ) {
+    extend( target, arg, deep );
+  } );
+
+  // 返回 target
+  return target;
 }
 
 // 函数在JS中是一种特殊的对象，也能添加属性
@@ -1651,7 +1706,7 @@ var _bid = 1,
     isObject = $.isObject,
     // 数组对象的slice方法
     slice = Array.prototype.slice,
-    // 缓存处理过的事件对象
+    // 事件缓存池
     handlers = {},
     hover = {
       mouseenter: 'mouseover',
@@ -1675,7 +1730,10 @@ var _bid = 1,
     },
     returnFalse = function() {
       return false;
-    };
+    },
+    // 创建代理对象是，忽略对象的这些属性
+    ignoreProperties = /^([A-Z]|returnValue$|layer[XY]$|webkitMovement[XY]$)/;
+;
 
 // 给 Base对象里的元素设置唯一的ID 或者 取出元素的ID
 function bid( element ) {
@@ -1745,6 +1803,26 @@ function compatible( event, source ) {
   return event;
 }
 
+// 创建代理对象
+function createProxy( event ) {
+  // 代理的对象
+  var proxy = {
+    // 存储原始的事件对象
+    originalEvent: event
+  };
+
+  // 遍历 事件对象
+  for (var key in event ) {
+    // 排除掉几个特定的属性、方法 和 空属性
+    if ( !ignoreProperties.test( key ) && event[ key ] !== undefined  ) {
+      // 通过下标的方式，将属性和方法写入对象
+      proxy[ key ] = event[ key ]
+    }
+  }
+  // 返回 代理对象
+  return compatible( proxy, event );
+}
+
 /**
  * 事件绑定
  * @param {NodeList}   element   元素节点
@@ -1756,7 +1834,6 @@ function compatible( event, source ) {
  * @param {Boolean}    capture   【可选】 事件是否在捕获或冒泡阶段执行
  */
 function add( element, events, fn, data, selector, delegator, capture ) {
-  //debugger
       // Base对象集合中每个元素对应的 ID
   var id = bid( element ),
       // 在缓存中读取每个元素绑定过的事件，如果缓存中查找不到的话，就在缓存中添加一个元素，初始值是空数组，并且set的值也是空数组
@@ -1833,9 +1910,57 @@ function add( element, events, fn, data, selector, delegator, capture ) {
   } );
 }
 
+// 找出符合条件的事件
+function findHandlers( element, event, fn, selector ) {
+  // 处理带命名空间的事件
+  event = parse( event );
+  // shi事件存在明媚空间的话，就生成命名空间的正则对象
+  if ( event.ns ) var matcher = matcherFor( event.ns );
+  // 返回符合条件的数组
+  return ( handlers[ bid( element ) ] || [] .filter( function( handler ) {
+    return handler
+      // 判断事件类型是否相同
+      && ( !event.e  || handler.e === event.e )
+      // 判断事件命名空间是否相同
+      && ( !event.ns || matcher.test( handler.ns ) )
+      // 判断fn标识符是否相同
+      && ( !fn       || bid( handler.fn ) === bid( fn ) )
+      // 判断selector是否相同
+      && ( !selector || handler.sel === selector )
+  } ) );
+}
+
+// 生成命名空间的正则对象
+function matcherFor( ns ) {
+  return new RegExp( '(?:^| )' + ns.replace( ' ', ' .* ?' ) + '(?: |$)' );
+}
+
 // 移除事件方法
 function remove( element, events, fn, selector, capture ) {
 
+  // Base对象集合中每个元素对应的 ID
+  var id = bid( element );
+
+  // 把事件字符串(events)用空白字符串分割成数组，然后遍历
+  ( events || '' ).split( /\s/ ).forEach( function( event ) {
+    // 找出符合条件的事件(数组)，然后遍历数组
+    findHandlers( element, event, fn, selector ).forEach( function( handler ) {
+      // 删除事件缓存池中对应的事件
+      delete handlers[ id ][ handler.i ]
+      // 支持 'removeEventListener'这个API
+      if ( 'removeEventListener' in element ) {
+        // 移除事件
+        element.removeEventListener(
+          // 事件名
+          realEvent(handler.e),
+          // 事件的回调函数
+          handler.proxy,
+          // 事件是否在捕获或冒泡阶段执行
+          eventCapture(handler, capture)
+        );
+      }
+    } );
+  } );
 }
 
 // 添加事件绑定
@@ -1895,7 +2020,7 @@ $.fn.on = function( event, selector, data, callback, one ) {
     if ( selector ) {
       //
       delegator = function( e ) {
-        console.info('1906', $( e.target ).closest( selector, element ));
+            // 代理对象
         var evt,
             // 从元素本身开始，逐级向上级元素匹配，并返回最先匹配selector的元素
             match = $( e.target ).closest( selector, element ).get( 0 );
@@ -1903,15 +2028,13 @@ $.fn.on = function( event, selector, data, callback, one ) {
         // match不为空，并且子节点不能和父节点相同
         if ( match && match !== element ) {
           // 生成代理事件对象
-          evt = $.extend( createProxy(e), {
+          evt = $.extend( createProxy( e ), {
             currentTarget: match,
             liveFired: element
           } );
           return ( autoRemove || callback ).apply( match, [ evt ].concat( slice.call( arguments, 1 ) )
           );
         }
-
-
       }
     }
 
@@ -1937,13 +2060,20 @@ $.fn.off = function( event, selector, callback ) {
 
   // 主要处理 off( type, function(e){ ... } ) 这种情况
   if ( !isStr( selector ) && !isFunction( callback ) && callback !== false ) {
+    // 第二个参数(selelctor)实际上传递的是回调函数(callback)
     callback = selector;
+    // 清空 selector
     selector = undefined;
   }
 
-  if ( callback === false ) callback = returnFalse;
+  // 主要处理 off( type, [selecrtor], false ) 这种情况
+  if ( callback === false ) {
+    // 传入false为处理函数，阻止冒泡
+    // function(){ return false; } 的简写
+    callback = returnFalse;
+  }
 
-  // 遍历 Base对象集合，并返回 Base对象
+  // 遍历 Base对象集合，移除所有事件，并返回 Base对象
   return $this.each( function() {
     // 移除事件
     remove( this, event, callback, selector );
