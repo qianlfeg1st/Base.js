@@ -1708,15 +1708,19 @@ var _bid = 1,
     slice = Array.prototype.slice,
     // 事件缓存池
     handlers = {},
+    // 处理 mouseenter、mouseleave事件时使用(mouseenter、mouseleave不冒泡，mouseover、mouseout功能一样且支持冒泡)
     hover = {
       mouseenter: 'mouseover',
       mouseleave: 'mouseout'
     },
+    // 是否支持 'onfocusin'事件(onfocusin 支持冒泡，onfocus 不支持冒泡)
     focusinSupported = 'onfocusin' in window,
+    // 处理 focus、blur事件时使用
     focus = {
       focus: 'focusin',
       blur: 'focusout'
     },
+    // 需要向代理事件对象里添加的方法
     eventMethods = {
       // 阻止默认事件
       preventDefault: 'isDefaultPrevented',
@@ -1737,6 +1741,7 @@ var _bid = 1,
 
 // 给 Base对象里的元素设置唯一的ID 或者 取出元素的ID
 function bid( element ) {
+  // 元素节点对象中已经存在这个ID，就返回这个ID。不存在的话，就在元素节点对象中写入一个ID(默认值是1)，并返回这个ID
   return element._bid || ( element._bid = _bid++ )
 }
 
@@ -1745,11 +1750,12 @@ function bid( element ) {
 function parse( event ) {
   // 先转换为字符串，然后用'.'分割成数组
   var parts = ( '' + event ).split( '.' );
+  // 返回 一个对象
   return {
     // 事件名
-    e: parts[ 0 ],
+    e:  parts[ 0 ],
     // 命名空间
-    ns: parts.slice( 1 ).sort().join('')
+    ns: parts[ 1 ]
   }
 }
 
@@ -1946,7 +1952,7 @@ function remove( element, events, fn, selector, capture ) {
     // 找出符合条件的事件(数组)，然后遍历数组
     findHandlers( element, event, fn, selector ).forEach( function( handler ) {
       // 删除事件缓存池中对应的事件
-      delete handlers[ id ][ handler.i ]
+      delete handlers[ id ][ handler.i ];
       // 支持 'removeEventListener'这个API
       if ( 'removeEventListener' in element ) {
         // 移除事件
@@ -1955,8 +1961,8 @@ function remove( element, events, fn, selector, capture ) {
           realEvent(handler.e),
           // 事件的回调函数
           handler.proxy,
-          // 事件是否在捕获或冒泡阶段执行
-          eventCapture(handler, capture)
+          //事件是否在捕获或冒泡阶段执行
+          eventCapture( handler, capture )
         );
       }
     } );
@@ -2012,7 +2018,7 @@ $.fn.on = function( event, selector, data, callback, one ) {
       // 移除事件绑定的匿名函数
       autoRemove = function( e ) {
         remove( element, e.type, callback );
-        return callback().apply( this, arguments );
+        return callback.apply( this, arguments );
       }
     }
 
@@ -2080,7 +2086,11 @@ $.fn.off = function( event, selector, callback ) {
   } );
 }
 
-
+// 注册一个事件，执行一次到，就移除这个事件
+$.fn.one = function( event, selector, data, callback ) {
+  // 直接调用原型链上的on方法，但是这里传传递了了第五个参数
+  return this.on( event, selector, data, callback, 'qianlifeng' );
+}
 
 
 
