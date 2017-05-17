@@ -473,7 +473,10 @@ function param( str ) {
   return param;
 }
 
+function ajax() {}
+
 // ajax方法
+/*
 function ajax( {
   type = 'get',
   url = window.location.href,
@@ -584,6 +587,7 @@ function ajax( {
   // 返回XMLHttpRequest实例
   return xhr;
 }
+*/
 
 // 序列化JSON字符串
 function jsonParse( str ) {
@@ -609,7 +613,9 @@ function jsonStr( obj ) {
   return '[{' + arr.join( ',' ) + '}]';
 }
 
+function cookie() {}
 // 获取 或 设置 cookie值
+/*
 function cookie( key, {
   value = '',
   domain = '',
@@ -662,10 +668,11 @@ function cookie( key, {
     }
   }
 }
+*/
 
 // 获取 和 设置 localStorage
 function storage( key, val ) {
-  let storage = window.localStorage;
+  var storage = window.localStorage;
 
   // 宿主环境不存在localStorage这个API，就终止执行
   if ( !storage ) return;
@@ -688,7 +695,7 @@ function storage( key, val ) {
 // 删除 和 清空 localStorage
 function removeStorage( key ) {
 
-  let storage = window.localStorage;
+  var storage = window.localStorage;
 
   // 宿主环境不存在localStorage这个API，就终止执行
   if ( !storage ) return;
@@ -1678,6 +1685,7 @@ $.removeStorage = removeStorage;
 $.isFunction = isFunction;
 $.isStr = isStr;
 $.isObject = isObject;
+$.isPlainObject = isPlainObject;
 
 // 构造函数B 的原型链指向 '$.fn'，那么B构造的实例都将继承 '$.fn'中的方法和属性
 B.prototype = $.fn;
@@ -1698,6 +1706,7 @@ return $;
 ;(function( $ ) {
     // Base对象集合每个元素对应的ID，初始值是 1
 var _bid = 1,
+    isPlainObject = $.isPlainObject;
     // 是否为函数
     isFunction = $.isFunction,
     // 是否为字符串
@@ -1736,8 +1745,10 @@ var _bid = 1,
       return false;
     },
     // 创建代理对象是，忽略对象的这些属性
-    ignoreProperties = /^([A-Z]|returnValue$|layer[XY]$|webkitMovement[XY]$)/;
-;
+    ignoreProperties = /^([A-Z]|returnValue$|layer[XY]$|webkitMovement[XY]$)/,
+    specialEvents={};
+
+    specialEvents.click = specialEvents.mousedown = specialEvents.mouseup = specialEvents.mousemove = 'MouseEvents';
 
 // 给 Base对象里的元素设置唯一的ID 或者 取出元素的ID
 function bid( element ) {
@@ -1825,7 +1836,7 @@ function createProxy( event ) {
       proxy[ key ] = event[ key ]
     }
   }
-  // 返回 代理对象
+  // 返回 代理事件对象
   return compatible( proxy, event );
 }
 
@@ -2092,6 +2103,309 @@ $.fn.one = function( event, selector, data, callback ) {
   return this.on( event, selector, data, callback, 'qianlifeng' );
 }
 
+// 创建并初始化一个事件
+$.Event = function( type, props ) {
+  // type传递的不是字符串(是对象)，其实这里的第一个参数传递的就是props
+  if ( !isStr( type ) ) {
+    // 无视第二个参数
+    props = type;
+    // 获取事件类型
+    type = props.type;
+  }
+      // 创建 事件对象
+      // click、mousedown、mouseup、mousemove 都属于 'MouseEvents'类型事件，所以需要特殊处理
+  var event = document.createEvent( specialEvents[ type ] || 'Events' ),
+      // 是否冒泡，默认值 false
+      bubbles = false;
 
+  // props不为空
+  if ( props ) {
+    // 遍历 props对象
+    for ( var name in props ) {
+      // 找到 'bubbles'的属性
+      if ( name === 'bubbles' ) {
+        // 将 其值转换为布尔值并赋值给 bubbles
+        bubbles = !!props[ name ];
+      } else {
+        // 以下标的方式将 props对象中的属性和属性值写入 event对象
+        event[ name ] = props[ name ];
+      }
+    }
+  }
+  // 初始化事件
+  event.initEvent( type, bubbles, true );
 
+  // 返回 代理事件对象
+  return compatible( event );
+}
+
+// 主动触发事件
+$.fn.trigger = function( event, args ) {
+  // 获取 事件对象
+  event = (isStr(event) || $.isPlainObject(event)) ? $.Event(event) : compatible(event);
+
+  // 将参数args作为事件对象的属性写入
+  event._args = args;
+
+  // 遍历 Base对象集合，并返回 Base对象
+  return this.each( function() {
+    // 需要触发的是focus、blur类型的事件，并且DOM对象中'事件相关的属性'的值是函数，就执行这个函数
+    if ( event.type in focus && isFunction( this[ event.type ] ) ) this[ event.type ]();
+    // 'dispatchEvent'是浏览器原生触发事件的API
+    if ( 'dispatchEvent' in this ) {
+      // 触发事件
+      this.dispatchEvent( event );
+    } else {
+      // 使用 triggerHandler方法来主动触发事件
+      $( this ).triggerHandler( event, args );
+    }
+  } );
+};
+
+$.fn.triggerHandler = function( event, args ) {
+  var e,
+      result;
+
+  this.each( function( i, element ) {
+    e = createProxy( isStr( event ) ? $.Event( event ) : event );
+    e._args = args;
+    e.target = element;
+    $.each( findHandlers( element, event.type || event ), function( i, handler ) {
+      result = handler.proxy( e );
+      if ( e.isImmediatePropagationStopped() ) return false
+    } );
+  } );
+  return result;
+}
+
+// 将 Base对象作为参数传入
+})( Base );
+
+;(function( $ ) {
+    // 返回的 事件对象
+var touch = {},
+    touchTimeout,
+    tapTimeout,
+    swipeTimeout,
+    longTapTimeout,
+    // 'longTap'(长按)事件的默认触发时间
+    longTapDelay = 750,
+    gesture,
+    eventNames = [ 'swipe', 'swipeLeft', 'swipeRight', 'swipeUp', 'swipeDown', 'doubleTap', 'tap', 'singleTap', 'longTap' ];
+
+// 判断 滑动的方向
+function swipeDirection( x1, x2, y1, y2 ) {
+  return Math.abs( x1 - x2 ) >= Math.abs( y1 - y2 ) ?
+        ( x1 - x2 > 0 ? 'Left' : 'Right' ) :
+        ( y1 -y2 > 0 ? 'Up' : 'Down' );
+}
+
+// 设置 longTap(长按)，并清空 touch对象
+function longTap() {
+  // 清空定时器ID
+  longTapTimeout = null;
+  //
+  if ( touch.last ) {
+    touch.el.trigger( 'longTap' );
+    // 清空 touch对象
+    touch = {};
+  }
+}
+
+// 取消 'longTap'(长按)事件
+function cancelLongTap() {
+  // 定时器ID存在的话
+  if ( longTapTimeout ) {
+    // 清除定时器
+    clearTimeout( longTapTimeout );
+    // 清空 定时器ID
+    longTapTimeout = null;
+  }
+}
+
+// 中止触发所有 touch事件
+function cancelAll() {
+  // 中止触发 'singleTap'事件
+  if ( touchTimeout ) clearTimeout( touchTimeout );
+  // 中止触发 'tap'事件
+  if ( tapTimeout ) clearTimeout( tapTimeout );
+  //  中止触发 'swipeXOO'事件
+  if ( swipeTimeout ) clearTimeout( swipeTimeout );
+  // 中止触发 'longTap'事件
+  if ( longTapTimeout ) clearTimeout( longTapTimeout );
+  // 清空 所有定时器ID
+  touchTimeout = tapTimeout = swipeTimeout = longTapTimeout = null;
+  // 清空 touch对象
+  touch = {};
+}
+
+// 判断是否是一个 touch 或者 pointer事件对象
+function isPrimaryTouch( e ) {
+  return ( event.poniterType === 'touch' || event.poniterType === event.MSPOINTER_TYPE_TOUCH ) && event.isPrimary
+}
+
+// 判断是否是一个 Pointer Event类型的事件对象
+function isPointerEventType( event, type ) {
+  return ( event.type === 'pointer' + type || event.type.toLowerCase() === 'mspointer' + type );
+}
+
+$( document ).ready( function() {
+      // 当前时间戳
+  var now,
+      // 触摸持续的时间
+      delta,
+      // 手指在X轴上移动的距离
+      deltaX = 0,
+      // 手指在Y轴上移动的距离
+      deltaY = 0,
+      // Touch事件对象
+      firstTouch,
+      // 是否是 touch类型的事件(包括 Touch Event、Pointer Event)
+      _isPointerType;
+
+  // 兼容 IE
+  if ( 'MSGesture' in window ) {
+    // 实例化手势对象
+    gesture = new MSGesture();
+    // 设置触发手势的元素
+    gesture.target = document.body;
+  }
+
+  $( document )
+    .on( 'touchstart MSPointerDown pointerdown', function( e ) {
+      // 排除 非touch事件
+      if ( ( _isPointerType = isPointerEventType( e, 'down' ) ) && isPrimaryTouch( e ) ) return;
+
+      // 获取 Touch对象
+      firstTouch = _isPointerType ? e : e.touches[ 0 ];
+
+      // touch.x2'不为空说明，之前已经触发过 touchmove事件
+      if ( e.touches && e.touches.length === 1 && touch.x2 ) {
+        // 清空 'touchmove'后的X轴坐标
+        touch.x2 = undefined;
+        // 清空 'touchmove'后的Y轴坐标
+        touch.y2 = undefined;
+      }
+
+      // 首次触摸的时间戳
+      now = +new Date;
+
+     // 触摸持续的时间
+      delta = now - ( touch.last || now );
+
+      // 获取触发事件的元素
+      touch.el = $('tagName' in firstTouch.target ?
+        firstTouch.target : firstTouch.target.parentNode)
+      touchTimeout && clearTimeout(touchTimeout)
+
+      // 记录 X轴坐标
+      touch.x1 = firstTouch.pageX
+      // 记录 Y轴坐标
+      touch.y1 = firstTouch.pageY
+
+      // 如果这是第二次触摸，并且间隔的时间小于 250毫秒，就认为是双击
+      if ( delta > 0 && delta <= 250 ) touch.isDoubleTap = true;
+
+      // 记录触发的时间
+      touch.last = now;
+
+      // 长按一定时间后，执行某些操作，并返回一个定时器ID(方便以后终止执行)
+      longTapTimeout = setTimeout( longTap ,longTapDelay );
+
+      //
+      if ( gesture && _isPointerType ) gesture.addPointer( e.pointerId );
+    } )
+    .on( 'touchmove MSPointerMove pointermove', function( e ) {
+      // 排除 非touch事件
+      if ( ( _isPointerType = isPointerEventType( e, 'move' ) ) && isPrimaryTouch( e ) ) return;
+      //console.info('e',e.touches[0]);
+      // 获取 Touch对象
+      firstTouch = _isPointerType ? e : e.touches[ 0 ];
+
+      // 一旦触发了'touchmove'事件，就取消longTap(长按)事件
+      cancelLongTap();
+
+      // 记录手指滑动的 X轴坐标
+      touch.x2 = firstTouch.pageX;
+      // 记录手指滑动的 Y轴坐标
+      touch.y2 = firstTouch.pageY;
+
+      // 记录手指在 X轴上滑动的距离
+      deltaX += Math.abs( touch.x1 - touch.x2 );
+      // 记录手指在 Y轴上滑动的距离
+      deltaY += Math.abs( touch.y1 - touch.y2 );
+    } )
+    .on( 'touchend MSPointerUp pointerup', function( e ) {
+      // 排除 非touch事件
+      if ( ( _isPointerType = isPointerEventType( e, 'up' ) ) && isPrimaryTouch( e ) ) return;
+
+      // 一旦触发了'touchend'事件，就取消longTap(长按)事件
+      cancelLongTap();
+
+      // 处理 'swipe'事件
+      // 手指在 'X轴' 或 'Y轴' 的位移大于 30
+      if ( ( touch.x2 && Math.abs( touch.x1 - touch.x2 ) > 30 ) ||
+           ( touch.y2 && Math.abs( touch.y1 - touch.y2 ) > 30 ) ) {
+        // setTimeout在这里起到尾执行的作用
+        swipeTimeout = setTimeout( function() {
+          // 触摸元素不为空
+          if ( touch.el ) {
+            touch.deltaX = Math.abs( touch.x1 - touch.x2 );
+            touch.deltaY = Math.abs( touch.y1 - touch.y2 );
+            touch.direction = swipeDirection( touch.x1, touch.x2, touch.y1, touch.y2 );
+            // 触发 'swipe'事件
+            touch.el.trigger( 'swipe', touch );
+            // 触发 'swipeLeft 或 swipeRight 或 swipeUp 或 swipeDown'事件
+            touch.el.trigger( 'swipe' + ( swipeDirection( touch.x1, touch.x2, touch.y1, touch.y2 ) ), touch );
+          }
+          // 清空 touch对象
+          touch = {};
+        }, 0 );
+      }
+
+      // 处理 'tap'事件
+      if ( 'last' in touch ) {
+        // 手指在 'X轴' 和 'Y轴' 的位小于 30
+        if ( deltaX < 30 && deltaY < 30 ) {
+          tapTimeout = setTimeout( function() {
+            var event = $.Event( 'tap' );
+            event.cancelTouch = cancelAll;
+            if ( touch.el ) touch.el.trigger( event );
+            //
+            if ( touch.isDoubleTap ) {
+              // 触摸元素存在的话，触发 'doubleTap'事件
+              if ( touch.el ) touch.el.trigger( 'doubleTap' );
+              // 清空 touch对象
+              touch = {};
+            } else {
+              touchTimeout = setTimeout( function() {
+                touchTimeout = null;
+                if ( touch.el ) touch.el.trigger( 'singleTap' );
+                touch = {};
+              }, 250 );
+            }
+          }, 0 );
+        }
+      } else {
+        // 清空 touch对象
+        touch = {};
+      }
+      // 清空 手指在X、Y轴移动的距离
+      deltaX = deltaY = 0;
+    } )
+    .on( 'touchcancel MSPointerCancel pointercancel', cancelAll );
+  // 移动滚动条时，移除所有touch事件
+  $( window ).on( 'scroll', cancelAll );
+} );
+
+// 遍历数组
+[ 'swipe', 'swipeLeft', 'swipeRight', 'swipeUp', 'swipeDown', 'doubleTap', 'tap', 'singleTap', 'longTap' ].forEach( function( eventName ) {
+  // 在 Base原型链上添加方法
+  $.fn[ eventName ] = function( callback ) {
+    // 注册事件，并返回 Base对象
+    return this.on( eventName, callback );
+  }
+} );
+
+// 将 Base对象作为参数传入
 })( Base );
